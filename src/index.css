@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface font-body text-on-surface selection:bg-primary/20 selection:text-on-primary-container transition-colors duration-500;
+    min-height: 100dvh;
+  }
+  
+  .dark body {
+    @apply bg-on-surface text-white selection:bg-primary-fixed/20 selection:text-primary-fixed;
+  }
+}
+
+@layer components {
+  .glass-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .asymmetric-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .asymmetric-grid {
+    grid-template-columns: 1fr;
+  }
+}
