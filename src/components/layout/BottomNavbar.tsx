@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, User } from 'lucide-react';
+import { Home, Users, User, Landmark } from 'lucide-react';
 
-export default function BottomNav() {
+export default function BottomNavbar() {
   const pathname = usePathname();
   const linkClassName = (href: string) =>
     `flex flex-col items-center gap-1 transition-all duration-300 ${
@@ -26,8 +26,6 @@ export default function BottomNav() {
         <Users size={24} />
       </Link>
       
-      <div className="w-8 h-8" />
-
       <Link href="/profile" className={linkClassName('/profile')}>
         <User size={24} />
       </Link>

@@ -3,24 +3,40 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import { useAppShell } from './AppShell';
+import { useEffect } from 'react';
 
-type RecordType = 'Expense' | 'Income' | 'Goal';
+type RecordType = 'Expense' | 'Income' | 'Goal' | 'Monthly';
 
 interface AddRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => Promise<void>;
   categories: string[];
+  incomeCategories: string[];
+  role?: string;
 }
 
-export default function AddRecordModal({ isOpen, onClose, onSave, categories }: AddRecordModalProps) {
+export default function AddRecordModal({ isOpen, onClose, onSave, categories, incomeCategories, role }: AddRecordModalProps) {
   const [type, setType] = useState<RecordType>('Expense');
   const [amount, setAmount] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
-  const [category, setCategory] = useState(categories[0] || 'Food');
+  const [category, setCategory] = useState(type === 'Income' ? (incomeCategories[0] || 'Salary') : (categories[0] || 'Food'));
+  const [customCategory, setCustomCategory] = useState('');
+  const [isOthersSelected, setIsOthersSelected] = useState(false);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const { prefillAmount } = useAppShell();
+
+  useEffect(() => {
+    if (isOpen && prefillAmount) {
+      setAmount(prefillAmount);
+    }
+  }, [isOpen, prefillAmount]);
+  
+  // Monthly fields
+  const [dueDay, setDueDay] = useState('1');
 
   const handleSave = async () => {
     if (!amount && type !== 'Goal') return;
@@ -28,14 +44,19 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
 
     setIsSaving(true);
     try {
+      const finalCategory = isOthersSelected ? customCategory : category;
+      if (isOthersSelected && !customCategory) return;
+
       const data = {
         type,
         amount: parseFloat(amount) || 0,
         targetAmount: parseFloat(targetAmount) || 0,
-        category,
+        category: type === 'Monthly' ? 'Monthly' : finalCategory,
         title: title || note,
         note,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        isPaid: type !== 'Expense',
+        dueDay: parseInt(dueDay) || 1
       };
       await onSave(data);
       setAmount('');
@@ -76,12 +97,19 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
             </div>
 
             {/* Type Selector */}
-            <div className="flex gap-2 mb-8 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-2xl">
-              {(['Expense', 'Income', 'Goal'] as RecordType[]).map((t) => (
+            <div className="flex gap-2 mb-8 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-2xl overflow-x-auto no-scrollbar">
+              {(['Expense', 'Income', 'Goal', 'Monthly'] as RecordType[])
+                .filter(t => (t !== 'Monthly' && t !== 'Expense') || role === 'Admin' || !role) 
+                .map((t) => (
                 <button
                   key={t}
-                  onClick={() => setType(t)}
-                  className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${
+                  onClick={() => {
+                    setType(t);
+                    setIsOthersSelected(false);
+                    if (t === 'Income') setCategory(incomeCategories[0] || 'Salary');
+                    else if (t === 'Expense') setCategory(categories[0] || 'Food');
+                  }}
+                  className={`flex-none px-4 py-3 rounded-xl font-bold text-xs transition-all ${
                     type === t 
                       ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-primary-fixed' 
                       : 'text-slate-400'
@@ -91,6 +119,7 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
                     {t === 'Expense' && <TrendingDown size={14} />}
                     {t === 'Income' && <TrendingUp size={14} />}
                     {t === 'Goal' && <Target size={14} />}
+                    {t === 'Monthly' && <Save size={14} />}
                     {t}
                   </div>
                 </button>
@@ -113,7 +142,7 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black dark:text-white">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black dark:text-white">₹</span>
                     <input
                       type="number"
                       value={amount}
@@ -129,7 +158,7 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Target Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black dark:text-white">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black dark:text-white">₹</span>
                     <input
                       type="number"
                       value={targetAmount}
@@ -141,18 +170,71 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
                 </div>
               )}
 
-              {type !== 'Goal' && (
+              {type === 'Monthly' && (
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Monthly Expense Name</label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl p-5 text-sm font-bold dark:text-white"
+                      placeholder="e.g. Rent, Internet, Maid"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Due Day (1-31)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={dueDay}
+                      onChange={(e) => setDueDay(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl p-5 text-sm font-bold dark:text-white"
+                      placeholder="1"
+                    />
+                  </div>
+                </>
+              )}
+
+              {type !== 'Goal' && type !== 'Monthly' && (
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Category</label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={isOthersSelected ? 'Others' : category}
+                    onChange={(e) => {
+                      if (e.target.value === 'Others') {
+                        setIsOthersSelected(true);
+                      } else {
+                        setIsOthersSelected(false);
+                        setCategory(e.target.value);
+                      }
+                    }}
                     className="w-full bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl p-5 text-sm font-bold dark:text-white outline-none appearance-none"
                   >
-                    {categories.map((c) => (
+                    {(type === 'Income' ? incomeCategories : categories).map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
+                    <option value="Others">Others</option>
                   </select>
+
+                  {isOthersSelected && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-4"
+                    >
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Enter Custom Category</label>
+                      <input
+                        type="text"
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl p-5 text-sm font-bold dark:text-white outline-none"
+                        placeholder="e.g. Gifts, Charity"
+                        autoFocus
+                      />
+                    </motion.div>
+                  )}
                 </div>
               )}
 
@@ -169,7 +251,13 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories }: 
 
               <button
                 onClick={handleSave}
-                disabled={isSaving || (type !== 'Goal' && !amount) || (type === 'Goal' && (!title || !targetAmount))}
+                disabled={isSaving || 
+                  (type === 'Expense' && !amount) || 
+                  (type === 'Income' && !amount) ||
+                  (type === 'Goal' && (!title || !targetAmount)) ||
+                  (type === 'Monthly' && (!title || !amount || !dueDay)) ||
+                  (isOthersSelected && !customCategory)
+                }
                 className="w-full bg-primary text-white p-5 rounded-2xl font-black text-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSaving ? (

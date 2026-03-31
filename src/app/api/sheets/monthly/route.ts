@@ -17,29 +17,25 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'EMI_Bills!A:L');
+    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:H');
     const items = rows.slice(1)
       .filter(r => r[4] === familyCode)
       .map((row, index) => ({
         title: row[0],
         amount: parseFloat(row[1]) || 0,
-        dueDate: row[2],
+        dueDay: parseInt(row[2]) || 1,
         status: row[3],
         familyCode: row[4],
         adminEmail: row[5],
-        tenure: parseInt(row[6]) || 0,
-        monthlyPayment: parseFloat(row[7]) || 0,
-        startDate: row[8],
-        paidMonths: parseInt(row[9]) || 0,
-        type: row[10] || 'EMI',
-        owner: row[11] || 'Family',
+        lastPaidDate: row[6],
+        lastPaidBy: row[7],
         id: index + 1
       }));
 
     return NextResponse.json({ items });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Monthly GET Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -49,30 +45,34 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions) as ManikuttiSession;
     if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { title, amount, dueDate, familyCode, tenure, monthlyPayment, startDate, type, owner } = await request.json();
+    const { title, amount, dueDay, familyCode } = await request.json();
     const service = new GoogleSheetsService(session);
     const spreadsheetId = await service.findOrCreateSheet('Family');
-    if (!spreadsheetId) return NextResponse.json({ items: [] });
+    if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
 
-    await service.appendRow(spreadsheetId, 'EMI_Bills', [
+    // Admin Check
+    const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+    const userRole = members.slice(1).find(m => m[0] === familyCode && m[1] === session.user?.email)?.[2];
+    
+    if (userRole !== 'Admin') {
+      return NextResponse.json({ error: 'Only Admins can add monthly expenses' }, { status: 403 });
+    }
+
+    await service.appendRow(spreadsheetId, 'Monthly_Expenses', [
       title,
       amount,
-      dueDate,
+      dueDay,
       'Unpaid',
       familyCode,
       session.user?.email,
-      tenure || '',
-      monthlyPayment || '',
-      startDate || '',
-      0, // paidMonths
-      type || 'EMI',
-      owner || 'Family'
+      '', // lastPaidDate
+      ''  // lastPaidBy
     ]);
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Monthly POST Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -82,16 +82,16 @@ export async function PATCH(request: Request) {
     const session = await getServerSession(authOptions) as ManikuttiSession;
     if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id, status, paidMonths, dueDate } = await request.json();
+    const { id, paidDate } = await request.json();
     const service = new GoogleSheetsService(session);
     const spreadsheetId = await service.findOrCreateSheet('Family');
-    if (!spreadsheetId) return NextResponse.json({ items: [] });
+    if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
     
-    // Update status (col D), paidMonths (col J), and dueDate (col C)
+    // Update status (col D), lastPaidDate (col G), and lastPaidBy (col H)
     const updates = [
-      { range: `EMI_Bills!D${id + 1}`, values: [[status]] },
-      { range: `EMI_Bills!J${id + 1}`, values: [[paidMonths]] },
-      { range: `EMI_Bills!C${id + 1}`, values: [[dueDate]] }
+      { range: `Monthly_Expenses!D${id + 1}`, values: [['Paid']] },
+      { range: `Monthly_Expenses!G${id + 1}`, values: [[paidDate]] },
+      { range: `Monthly_Expenses!H${id + 1}`, values: [[session.user?.email]] }
     ];
 
     for (const update of updates) {
@@ -100,6 +100,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error('Monthly PATCH Error:', error);
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });
   }
 }

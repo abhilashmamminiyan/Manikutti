@@ -5,8 +5,11 @@ import AppShell from '@/components/AppShell';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Manikutti Finance Tracker',
+  title: 'Manikutti',
   description: 'Finance tracking app migrated to Next.js.',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({

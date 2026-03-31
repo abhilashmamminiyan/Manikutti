@@ -34,27 +34,20 @@ export default function FamilyTrackingSetup() {
           </div>
         </motion.div>
 
-        {/* Join Family */}
+        {/* Join Family / Invitation Info */}
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <Search size={32} className="mb-6 text-primary dark:text-primary-fixed opacity-40 ml-1" />
-          <h2 className="text-2xl font-bold font-headline mb-4 dark:text-white">Join Existing</h2>
+          <Mail size={32} className="mb-6 text-primary dark:text-primary-fixed opacity-40 ml-1" />
+          <h2 className="text-2xl font-bold font-headline mb-4 dark:text-white">Waiting for Invite?</h2>
           
           <div className="space-y-4">
-            <div className="relative">
-              <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">
-                <ShieldCheck size={20} />
-              </div>
-              <input 
-                type="text" 
-                placeholder="Enter Sanctuary Code"
-                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-6 pl-16 pr-6 font-bold text-sm focus:ring-2 focus:ring-primary/20 dark:text-white transition-all"
-              />
-            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed">
+              Family access is now via direct email invitation. Ask your family administrator to invite you using your Google email address.
+            </p>
             
-            <button className="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold py-6 rounded-2xl flex items-center justify-center gap-3 hover:bg-primary hover:text-white transition-all duration-300 group">
-              <span>Find Sanctuary</span>
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Your Email</p>
+              <p className="text-sm font-bold dark:text-white truncate">Check your inbox for a link.</p>
+            </div>
           </div>
         </div>
       </div>

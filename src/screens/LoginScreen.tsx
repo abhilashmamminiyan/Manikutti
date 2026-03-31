@@ -14,11 +14,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     >
       <div className="flex flex-col items-center">
         <div className="w-32 h-32 bg-white dark:bg-slate-800 rounded-[3rem] shadow-2xl shadow-primary/20 flex items-center justify-center mb-12 overflow-hidden border-4 border-white dark:border-slate-700">
-           <img 
-             src="https://lh3.googleusercontent.com/aida/ADBb0uhx8pQnLFbGdlLpMYfKAjQo3rm38XO1-Z_53Sx1BpZ0Ypb_U4ktGNGU1zNoMRR8cYfvfltYBVUkcWdL0hEA3kDZrFwaOpPOylHVUwPCAh0p0PvrW33NMUW8mQh2gNICBdbMXESF_VwwrU79YvdAEBWthfMLIezUjrTJOvWpM-omdadyIcrLdwobSnnRLWiHodAdN4fjLIrGyiO7VY9edBf_2fekxU21vkiIIEoq1B9JNk_2W8j_pRwAtCxcDsxZXd9_bD2EjKJ3tA" 
-             alt="Manikutti Logo" 
-             className="w-full h-full object-cover"
-           />
+            <img 
+              src="/favicon.png" 
+              alt="Manikutti Logo" 
+              className="w-full h-full object-cover"
+            />
         </div>
         
         <h1 className="text-4xl font-black font-headline text-center mb-4 dark:text-white">Welcome to Manikutti</h1>

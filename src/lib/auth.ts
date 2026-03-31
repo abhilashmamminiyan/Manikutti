@@ -9,7 +9,7 @@ export const authOptions: AuthOptions = {
       authorization: {
         params: {
           scope:
-            "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets",
+            "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/spreadsheets",
         },
       },
     }),
@@ -18,14 +18,15 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, account }) {
       if (account) {
-        token.accessToken = account.access_token
+        token.accessToken = account.access_token;
+        console.log(`[Auth] New token for ${token.email}. Access Token granted. Scopes: ${account.scope}`);
       }
-      return token
+      return token;
     },
     async session({ session, token }) {
       // @ts-ignore
       session.accessToken = token.accessToken as string;
-      return session
+      return session;
     },
   },
 }
