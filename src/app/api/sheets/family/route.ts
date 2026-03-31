@@ -41,7 +41,11 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('Error in family GET:', error);
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error.status === 401 || error.code === 401 || error.message === 'UNAUTHORIZED_GOOGLE_ACCESS') {
+      return NextResponse.json({ 
+        error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again.' 
+      }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
@@ -66,7 +70,7 @@ export async function POST(request: Request) {
     if (action === 'join' && code) {
       const allSheets = await service.findAllFamilySheets();
       let targetSpreadsheetId = null;
-      let searchedCount = allSheets.length;
+      const searchedCount = allSheets.length;
 
       for (const sheet of allSheets) {
         if (!sheet.id) continue;
@@ -108,7 +112,9 @@ export async function POST(request: Request) {
       const familyCode = adminRow[0];
       
       // Fetch the actual spreadsheet name for the email
+      // @ts-expect-error - accessing private auth for debugging/fix
       const spreadsheet = await service.drive.files.get({
+        auth: service.auth,
         fileId: spreadsheetId,
         fields: 'name'
       });
@@ -185,8 +191,10 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error in family POST:', error);
     const status = error.status || error.code || error.response?.status;
-    if (status === 401 || status === '401') {
-      return NextResponse.json({ error: 'Your Google session has expired. Please sign out and sign in again.' }, { status: 401 });
+    if (status === 401 || status === '401' || error.message === 'UNAUTHORIZED_GOOGLE_ACCESS') {
+      return NextResponse.json({ 
+        error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again to refresh your access.' 
+      }, { status: 401 });
     }
     return NextResponse.json({ error: error.message || 'Internal server error', details: error.toString() }, { status: 500 });
   }

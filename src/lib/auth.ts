@@ -9,7 +9,10 @@ export const authOptions: AuthOptions = {
       authorization: {
         params: {
           scope:
-            "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/spreadsheets",
+            "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets",
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code"
         },
       },
     }),
@@ -24,7 +27,7 @@ export const authOptions: AuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      // @ts-ignore
+      // @ts-expect-error - accessToken is added to session via callbacks
       session.accessToken = token.accessToken as string;
       return session;
     },

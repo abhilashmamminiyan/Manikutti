@@ -12,13 +12,19 @@ export class GoogleSheetsService {
 
   constructor(session: ManikuttiSession) {
     if (!session?.accessToken) {
+      console.error('[GoogleSheetsService] Missing access token in session');
       throw new Error('Google access token not found in session.');
     }
     this.session = session;
-    this.auth = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
+    console.log(`[GoogleSheetsService] Initializing with access token (length: ${session.accessToken.length}, prefix: ${session.accessToken.substring(0, 5)})`);
+    
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId) console.warn('[GoogleSheetsService] GOOGLE_CLIENT_ID is missing');
+    if (!clientSecret) console.warn('[GoogleSheetsService] GOOGLE_CLIENT_SECRET is missing');
+
+    this.auth = new google.auth.OAuth2(clientId, clientSecret);
     this.auth.setCredentials({ access_token: session.accessToken });
 
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
@@ -26,22 +32,31 @@ export class GoogleSheetsService {
   }
 
   public async findAllFamilySheets(): Promise<{id: string, name: string}[]> {
-    const response = await this.drive.files.list({
-      auth: this.auth,
-      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
-      fields: 'files(id, name, owners)',
-      pageSize: 50,
-    });
-    
-    const allFiles = response.data.files || [];
-    console.log(`[GoogleSheetsService] findAllFamilySheets: Total spreadsheets found: ${allFiles.length}`);
-    allFiles.forEach(f => console.log(`[GoogleSheetsService] Found file: "${f.name}" (ID: ${f.id})`));
+    try {
+      console.log('[GoogleSheetsService] findAllFamilySheets: fetching list');
+      const response = await this.drive.files.list({
+        auth: this.auth,
+        q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+        fields: 'files(id, name, owners)',
+        pageSize: 50,
+      });
+      
+      const allFiles = response.data.files || [];
+      console.log(`[GoogleSheetsService] findAllFamilySheets: Total spreadsheets found: ${allFiles.length}`);
+      allFiles.forEach(f => console.log(`[GoogleSheetsService] Found file: "${f.name}" (ID: ${f.id})`));
 
-    const filtered = allFiles
-      .filter(f => f.name && (f.name.includes(FAMILY_SHEET_PREFIX) || (f.name.includes('Family') && f.name.includes('Manikutti'))))
-      .map(f => ({ id: f.id!, name: f.name! }));
+      const filtered = allFiles
+        .filter(f => f.name && (f.name.includes(FAMILY_SHEET_PREFIX) || (f.name.includes('Family') && f.name.includes('Manikutti'))))
+        .map(f => ({ id: f.id!, name: f.name! }));
 
-    return filtered;
+      return filtered;
+    } catch (error: any) {
+      console.error('[GoogleSheetsService] Error in findAllFamilySheets:', error.message);
+      if (error.code === 401 || error.status === 401) {
+        throw new Error('UNAUTHORIZED_GOOGLE_ACCESS');
+      }
+      throw error;
+    }
   }
 
   private async checkMembership(spreadsheetId: string, email: string): Promise<boolean> {
@@ -70,6 +85,7 @@ export class GoogleSheetsService {
             for (const file of familyFiles) {
               console.log(`[GoogleSheetsService] Checking family file: ${file.name} (${file.id})`);
               if (await this.checkMembership(file.id, userEmail)) {
+                await this.ensureSheetsExist(file.id, 'Family');
                 return file.id;
               }
             }
@@ -125,6 +141,7 @@ export class GoogleSheetsService {
           await this.ensureSheetsExist(ownedFile.id!, 'Personal');
           return ownedFile.id!;
         } else {
+          await this.ensureSheetsExist(secondFiles[0].id!, 'Family');
           return secondFiles[0].id!;
         }
       }
@@ -143,6 +160,7 @@ export class GoogleSheetsService {
       ];
 
       const spreadsheet = await this.sheets.spreadsheets.create({
+        auth: this.auth,
         requestBody: {
           properties: { title: targetName },
           sheets: sheetsConfig,
@@ -155,7 +173,10 @@ export class GoogleSheetsService {
   }
 
   private async ensureSheetsExist(spreadsheetId: string, type: 'Personal' | 'Family') {
-    const spreadsheet = await this.sheets.spreadsheets.get({ spreadsheetId });
+    const spreadsheet = await this.sheets.spreadsheets.get({ 
+      auth: this.auth,
+      spreadsheetId 
+    });
     const existingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
     
     const requiredSheets = type === 'Personal' 
@@ -170,6 +191,7 @@ export class GoogleSheetsService {
       }));
 
       await this.sheets.spreadsheets.batchUpdate({
+        auth: this.auth,
         spreadsheetId,
         requestBody: { requests }
       });
@@ -197,6 +219,7 @@ export class GoogleSheetsService {
     for (const title of sheetsToInit) {
       if (headers[title]) {
         await this.sheets.spreadsheets.values.update({
+          auth: this.auth,
           spreadsheetId,
           range: `${title}!A1`,
           valueInputOption: 'USER_ENTERED',
@@ -208,7 +231,11 @@ export class GoogleSheetsService {
 
   public async getSheetData(spreadsheetId: string, range: string) {
     try {
-      const response = await this.sheets.spreadsheets.values.get({ spreadsheetId, range });
+      const response = await this.sheets.spreadsheets.values.get({ 
+        auth: this.auth,
+        spreadsheetId, 
+        range 
+      });
       return response.data.values || [];
     } catch (error) {
       console.error(`Error fetching sheet data for ${spreadsheetId}:`, error);
@@ -218,6 +245,7 @@ export class GoogleSheetsService {
 
   public async appendRow(spreadsheetId: string, range: string, values: any[]) {
     await this.sheets.spreadsheets.values.append({
+      auth: this.auth,
       spreadsheetId,
       range,
       valueInputOption: 'USER_ENTERED',
@@ -227,6 +255,7 @@ export class GoogleSheetsService {
 
   public async updateRow(spreadsheetId: string, range: string, values: any[]) {
     await this.sheets.spreadsheets.values.update({
+      auth: this.auth,
       spreadsheetId,
       range,
       valueInputOption: 'USER_ENTERED',
@@ -236,6 +265,7 @@ export class GoogleSheetsService {
 
   public async updateSheetData(spreadsheetId: string, range: string, values: any[][]) {
     await this.sheets.spreadsheets.values.update({
+      auth: this.auth,
       spreadsheetId,
       range,
       valueInputOption: 'USER_ENTERED',
@@ -246,6 +276,7 @@ export class GoogleSheetsService {
   public async shareSheet(spreadsheetId: string, email: string) {
     try {
       await this.drive.permissions.create({
+        auth: this.auth,
         fileId: spreadsheetId,
         requestBody: {
           type: 'user',
@@ -262,6 +293,7 @@ export class GoogleSheetsService {
 
   public async clearRange(spreadsheetId: string, range: string) {
     await this.sheets.spreadsheets.values.clear({
+      auth: this.auth,
       spreadsheetId,
       range,
     });
