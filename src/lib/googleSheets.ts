@@ -7,8 +7,8 @@ export const FAMILY_SHEET_PREFIX = 'Manikutti_v2_Family_';
 export class GoogleSheetsService {
   private session: ManikuttiSession;
   private sheets: sheets_v4.Sheets;
-  public drive: drive_v3.Drive;
-  private auth: any;
+  private drive: drive_v3.Drive;
+  private auth: InstanceType<typeof google.auth.OAuth2>;
 
   constructor(session: ManikuttiSession) {
     if (!session?.accessToken) {
@@ -50,9 +50,10 @@ export class GoogleSheetsService {
         .map(f => ({ id: f.id!, name: f.name! }));
 
       return filtered;
-    } catch (error: any) {
-      console.error('[GoogleSheetsService] Error in findAllFamilySheets:', error.message);
-      if (error.code === 401 || error.status === 401) {
+    } catch (error: unknown) {
+      console.error('[GoogleSheetsService] Error in findAllFamilySheets:', error instanceof Error ? error.message : String(error));
+      // @ts-expect-error - checking for common API error properties
+      if (error?.code === 401 || error?.status === 401) {
         throw new Error('UNAUTHORIZED_GOOGLE_ACCESS');
       }
       throw error;
@@ -201,7 +202,7 @@ export class GoogleSheetsService {
   }
 
   private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family', specificSheets?: string[]) {
-    const headers: any = {
+    const headers: Record<string, string[][]> = {
       'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
       'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
@@ -243,7 +244,7 @@ export class GoogleSheetsService {
     }
   }
 
-  public async appendRow(spreadsheetId: string, range: string, values: any[]) {
+  public async appendRow(spreadsheetId: string, range: string, values: unknown[]) {
     await this.sheets.spreadsheets.values.append({
       auth: this.auth,
       spreadsheetId,
@@ -253,7 +254,7 @@ export class GoogleSheetsService {
     });
   }
 
-  public async updateRow(spreadsheetId: string, range: string, values: any[]) {
+  public async updateRow(spreadsheetId: string, range: string, values: unknown[]) {
     await this.sheets.spreadsheets.values.update({
       auth: this.auth,
       spreadsheetId,
@@ -263,7 +264,7 @@ export class GoogleSheetsService {
     });
   }
 
-  public async updateSheetData(spreadsheetId: string, range: string, values: any[][]) {
+  public async updateSheetData(spreadsheetId: string, range: string, values: unknown[][]) {
     await this.sheets.spreadsheets.values.update({
       auth: this.auth,
       spreadsheetId,

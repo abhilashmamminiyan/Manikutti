@@ -39,14 +39,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ familyCode, members, role: userFamily[2] });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in family GET:', error);
-    if (error.status === 401 || error.code === 401 || error.message === 'UNAUTHORIZED_GOOGLE_ACCESS') {
+    // @ts-expect-error - checking for common API error properties
+    if (error?.status === 401 || error?.code === 401 || (error instanceof Error && error.message === 'UNAUTHORIZED_GOOGLE_ACCESS')) {
       return NextResponse.json({ 
         error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again.' 
       }, { status: 401 });
     }
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -188,14 +189,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in family POST:', error);
-    const status = error.status || error.code || error.response?.status;
-    if (status === 401 || status === '401' || error.message === 'UNAUTHORIZED_GOOGLE_ACCESS') {
+    // @ts-expect-error - checking for common API error properties
+    const status = error?.status || error?.code || error?.response?.status;
+    if (status === 401 || status === '401' || (error instanceof Error && error.message === 'UNAUTHORIZED_GOOGLE_ACCESS')) {
       return NextResponse.json({ 
         error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again to refresh your access.' 
       }, { status: 401 });
     }
-    return NextResponse.json({ error: error.message || 'Internal server error', details: error.toString() }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error', details: String(error) }, { status: 500 });
   }
 }
