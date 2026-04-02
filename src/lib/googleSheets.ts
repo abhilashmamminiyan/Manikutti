@@ -182,7 +182,7 @@ export class GoogleSheetsService {
     
     const requiredSheets = type === 'Personal' 
       ? ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History']
-      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History'];
+      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments'];
 
     const missingSheets = requiredSheets.filter(s => !existingSheets.includes(s));
 
@@ -207,15 +207,18 @@ export class GoogleSheetsService {
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
       'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
-      'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date']],
-      'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By']],
+      'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Monthly Income']],
+      'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan']],
       'Invitations': [['Token', 'Email', 'Family Code', 'Spreadsheet ID', 'Status', 'Expiry Date']],
       'Calculator_History': [['Date', 'User', 'Expression', 'Result']],
+      'Loans': [['Loan Name', 'Principal Amount', 'Monthly EMI', 'Assigned To', 'Family Code', 'Admin Email', 'Status']],
+      'Loan_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Loan Name', 'Added By', 'Family Code']],
+      'Loan_Repayments': [['Date', 'Amount', 'Loan Name', 'Paid By', 'Family Code']],
     };
 
     const sheetsToInit = specificSheets || (type === 'Personal' 
       ? ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History']
-      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History']);
+      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments']);
 
     for (const title of sheetsToInit) {
       if (headers[title]) {

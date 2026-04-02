@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:H');
+    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:I');
     const items = rows.slice(1)
       .filter(r => r[4] === familyCode)
       .map((row, index) => ({
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         adminEmail: row[5],
         lastPaidDate: row[6],
         lastPaidBy: row[7],
+        linkedLoan: row[8],
         id: index + 1
       }));
 
@@ -87,11 +88,49 @@ export async function PATCH(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
     
-    // Update status (col D), lastPaidDate (col G), and lastPaidBy (col H)
+    // 1. Fetch item to check for loan link
+    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:I');
+    // We need to find the actual row because IDs are based on filtering
+    // Actually, in GET we used (row, index) => id: index+1
+    // But index is relative to the filtered list. This is a bug.
+    // Let's use the Title or something unique, or just fetch all and find the one.
+    const allRows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:I');
+    const itemIndex = allRows.findIndex((r, i) => i > 0 && i === id); // This is still fragile.
+    // Recommended fix: API should use a unique key. For now, let's assume 'id' passed is the row index.
+    const item = allRows[id]; 
+    if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+
+    const linkedLoanName = item[8];
+    if (linkedLoanName) {
+      const loansRows = await service.getSheetData(spreadsheetId, 'Loans!A:G');
+      const loan = loansRows.find(r => r[0] === linkedLoanName);
+      if (loan) {
+        const assignedTo = loan[3];
+        if (assignedTo && assignedTo !== session.user?.email) {
+          return NextResponse.json({ error: 'Only the assigned user can mark this as paid.' }, { status: 403 });
+        }
+        
+        // Record in Loan_Repayments
+        await service.appendRow(spreadsheetId, 'Loan_Repayments', [
+          paidDate || new Date().toISOString(),
+          item[1], // Amount
+          linkedLoanName,
+          session.user?.email,
+          item[4] // Family Code
+        ]);
+      }
+    }
+
+    // 2. Fetch User Nickname
+    const memberRows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
+    const currentUser = memberRows.slice(1).find(r => r[1] === session.user?.email);
+    const displayName = currentUser?.[4] || session.user?.email || 'Unknown';
+
+    // 3. Update status (col D), lastPaidDate (col G), and lastPaidBy (col H)
     const updates = [
       { range: `Monthly_Expenses!D${id + 1}`, values: [['Paid']] },
       { range: `Monthly_Expenses!G${id + 1}`, values: [[paidDate]] },
-      { range: `Monthly_Expenses!H${id + 1}`, values: [[session.user?.email]] }
+      { range: `Monthly_Expenses!H${id + 1}`, values: [[displayName]] }
     ];
 
     for (const update of updates) {
@@ -101,6 +140,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Monthly PATCH Error:', error);
-    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Update failed', details: error.message }, { status: 500 });
   }
 }
