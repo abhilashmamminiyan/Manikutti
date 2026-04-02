@@ -17,19 +17,22 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ loans: [] });
 
-    const [loansRows, expensesRows] = await Promise.all([
-      service.getSheetData(spreadsheetId, 'Loans!A:E'),
-      service.getSheetData(spreadsheetId, 'Loan_Expenses!A:G')
+    const [loansRows, expensesRows, repaymentRows] = await Promise.all([
+      service.getSheetData(spreadsheetId, 'Loans!A:G'),
+      service.getSheetData(spreadsheetId, 'Loan_Expenses!A:G'),
+      service.getSheetData(spreadsheetId, 'Loan_Repayments!A:E')
     ]);
 
     const loans = loansRows.slice(1)
-      .filter(r => r[2] === familyCode)
+      .filter(r => r[4] === familyCode)
       .map(r => ({
         name: r[0],
         amount: parseFloat(r[1]) || 0,
-        familyCode: r[2],
-        adminEmail: r[3],
-        status: r[4] || 'Active'
+        monthlyEMI: parseFloat(r[2]) || 0,
+        assignedTo: r[3],
+        familyCode: r[4],
+        adminEmail: r[5],
+        status: r[6] || 'Active'
       }));
 
     const expenses = expensesRows.slice(1)
@@ -44,7 +47,17 @@ export async function GET(request: Request) {
         familyCode: r[6]
       }));
 
-    return NextResponse.json({ loans, expenses });
+    const repayments = repaymentRows.slice(1)
+      .filter(r => r[4] === familyCode)
+      .map(r => ({
+        date: r[0],
+        amount: parseFloat(r[1]) || 0,
+        loanName: r[2],
+        paidBy: r[3],
+        familyCode: r[4]
+      }));
+
+    return NextResponse.json({ loans, expenses, repayments });
 
   } catch (error: any) {
     console.error('Loans GET Error:', error);
@@ -57,7 +70,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions) as ManikuttiSession;
     if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { action, loanName, amount, familyCode, expense } = await request.json();
+    const { action, loanName, amount, monthlyEMI, assignedTo, familyCode, expense } = await request.json();
     const service = new GoogleSheetsService(session);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
@@ -66,10 +79,25 @@ export async function POST(request: Request) {
       await service.appendRow(spreadsheetId, 'Loans', [
         loanName,
         amount,
+        monthlyEMI,
+        assignedTo,
         familyCode,
         session.user?.email,
         'Active'
       ]);
+
+      await service.appendRow(spreadsheetId, 'Monthly_Expenses', [
+        `EMI: ${loanName}`,
+        monthlyEMI,
+        1,
+        'Unpaid',
+        familyCode,
+        session.user?.email,
+        '',
+        '',
+        loanName
+      ]);
+
       return NextResponse.json({ success: true });
     }
 
@@ -77,7 +105,7 @@ export async function POST(request: Request) {
       await service.appendRow(spreadsheetId, 'Loan_Expenses', [
         expense.date || new Date().toISOString(),
         expense.amount,
-        expense.category || 'Loan Repayment',
+        expense.category || 'Loan Spend',
         expense.note || '',
         loanName,
         session.user?.email,

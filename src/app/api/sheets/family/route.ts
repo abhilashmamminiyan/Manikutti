@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ family: null });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:D');
+    const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
     
     if (code) {
       // Find family by code
@@ -34,7 +34,9 @@ export async function GET(request: Request) {
     const members = rows.slice(1).filter(r => r[0] === familyCode).map(r => ({
       email: r[1],
       role: r[2],
-      joinedDate: r[3]
+      joinedDate: r[3],
+      nickname: r[4] || '',
+      monthlyIncome: parseFloat(r[5]) || 0
     }));
 
     return NextResponse.json({ familyCode, members, role: userFamily[2] });
@@ -56,7 +58,8 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions) as ManikuttiSession;
     if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { action, code, email, name, token } = await request.json();
+    const body = await request.json();
+    const { action, code, email, name, token, targetEmail, nickname, monthlyIncome } = body;
     const service = new GoogleSheetsService(session);
 
     if (action === 'create') {
@@ -185,6 +188,24 @@ export async function POST(request: Request) {
       } catch (err) {
         return NextResponse.json({ error: 'Invalid or expired token' }, { status: 400 });
       }
+    }
+
+    if (action === 'updateMember') {
+      const spreadsheetId = await service.findOrCreateSheet('Family');
+      if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
+
+      const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
+      const rowIndex = rows.findIndex(r => r[1] === targetEmail);
+      if (rowIndex === -1) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+
+      // Ensure row has enough columns
+      while (rows[rowIndex].length < 6) rows[rowIndex].push('');
+      
+      rows[rowIndex][4] = nickname || '';
+      rows[rowIndex][5] = (monthlyIncome || 0).toString();
+
+      await service.updateSheetData(spreadsheetId, 'Family_Members!A:F', rows);
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
