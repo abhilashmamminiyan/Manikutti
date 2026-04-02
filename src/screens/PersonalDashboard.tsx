@@ -8,7 +8,7 @@ import { useAppShell } from '@/components/AppShell';
 import Header from '@/components/layout/Header';
 
 export default function PersonalDashboard() {
-  const { setIsAddModalOpen, logout, lastRefresh, user: sessionUser, setIsNotificationOpen, pendingCount } = useAppShell();
+  const { setIsAddModalOpen, setInitialType, logout, lastRefresh, user: sessionUser, setIsNotificationOpen, pendingCount } = useAppShell();
   const session = { user: sessionUser }; // Backwards compat for code below
   const [expenses, setExpenses] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
@@ -80,11 +80,11 @@ export default function PersonalDashboard() {
     }
   };
 
-  const isIncome = (category: string) => ['Income', 'Salary'].includes(category);
+  const isIncome = (expense: any) => expense.type === 'Income' || ['Income', 'Salary'].includes(expense.category);
 
   const prosperityData = useMemo(() => {
-    const incomeTotal = expenses.filter(e => isIncome(e.category)).reduce((sum, e) => sum + e.amount, 0);
-    const expenseTotal = expenses.filter(e => !isIncome(e.category)).reduce((sum, e) => sum + e.amount, 0);
+    const incomeTotal = expenses.filter(e => isIncome(e)).reduce((sum, e) => sum + e.amount, 0);
+    const expenseTotal = expenses.filter(e => !isIncome(e)).reduce((sum, e) => sum + e.amount, 0);
     const balance = incomeTotal - expenseTotal;
 
     return [
@@ -96,7 +96,7 @@ export default function PersonalDashboard() {
 
   const totalProsperity = useMemo(() => {
     return expenses.reduce((sum, e) => {
-      return isIncome(e.category) ? sum + e.amount : sum - e.amount;
+      return isIncome(e) ? sum + e.amount : sum - e.amount;
     }, 0);
   }, [expenses]);
 console.log("expenses",expenses)
@@ -146,7 +146,19 @@ console.log("expenses",expenses)
       )}
 
       <section className="mb-12 px-2">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Personal Prosperity Portfolio</span>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Personal Prosperity Portfolio</span>
+          <button 
+            onClick={() => {
+              setInitialType('Income');
+              setIsAddModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-xl border border-emerald-100/50 dark:border-emerald-500/20"
+          >
+            <Edit2 size={10} />
+            Add Income
+          </button>
+        </div>
         <div className="flex items-baseline gap-1 mt-1">
           <h2 className="text-5xl font-extrabold font-headline dark:text-white">₹{totalProsperity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
           <TrendingUp className="text-primary" size={24} />
@@ -215,8 +227,15 @@ console.log("expenses",expenses)
       {/* Recent Expenses */}
       <section className="mb-8 px-2 flex justify-between items-center">
         <h3 className="text-lg font-bold font-headline dark:text-white">Recent Records</h3>
-        <button onClick={() => setIsAddModalOpen(true)} className="p-2 bg-primary/10 text-primary rounded-xl">
-           <Edit2 size={16} />
+        <button 
+          onClick={() => {
+            setInitialType('Expense');
+            setIsAddModalOpen(true);
+          }} 
+          className="flex items-center gap-1.5 text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/10"
+        >
+           <Edit2 size={10} />
+           Add Expense
         </button>
       </section>
 
@@ -238,7 +257,7 @@ console.log("expenses",expenses)
                <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h4 className="font-bold text-sm dark:text-white">{expense.category}</h4>
-                    {!expense.isPaid && !isIncome(expense.category) && (
+                    {!expense.isPaid && !isIncome(expense) && (
                       <span className="text-[8px] font-black bg-amber-100 dark:bg-amber-900/30 text-amber-600 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">Unpaid</span>
                     )}
                   </div>
@@ -246,10 +265,10 @@ console.log("expenses",expenses)
                   <p className="text-[10px] text-slate-400 font-medium truncate">{expense.note}</p>
                </div>
                <div className="text-right flex items-center gap-3">
-                  <div className={`font-bold text-sm ${isIncome(expense.category) ? 'text-emerald-500' : 'dark:text-white'}`}>
-                    {isIncome(expense.category) ? '+' : '-'}₹{expense.amount.toFixed(2)}
+                  <div className={`font-bold text-sm ${isIncome(expense) ? 'text-emerald-500' : 'dark:text-white'}`}>
+                    {isIncome(expense) ? '+' : '-'}₹{expense.amount.toFixed(2)}
                   </div>
-                  {!expense.isPaid && !isIncome(expense.category) && (
+                  {!expense.isPaid && !isIncome(expense) && (
                     <button 
                       onClick={() => handleMarkAsPaid(expense)}
                       className="p-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 rounded-xl hover:scale-110 transition-transform"

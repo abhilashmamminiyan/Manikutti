@@ -46,6 +46,8 @@ type AppShellContextValue = {
   setPrefillAmount: (amount: string) => void;
   calculatorHistory: any[];
   fetchCalculatorHistory: () => Promise<void>;
+  initialType: 'Expense' | 'Income' | 'Goal' | 'Monthly';
+  setInitialType: (type: 'Expense' | 'Income' | 'Goal' | 'Monthly') => void;
 };
 
 const protectedPaths = ['/', '/personal', '/family', '/family-setup', '/profile'];
@@ -69,6 +71,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [prefillAmount, setPrefillAmount] = useState('');
   const [calculatorHistory, setCalculatorHistory] = useState<any[]>([]);
+  const [initialType, setInitialType] = useState<'Expense' | 'Income' | 'Goal' | 'Monthly'>('Expense');
   const initializationRef = useRef(false);
 
   const isLoggedIn = status === 'authenticated';
@@ -194,7 +197,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const handleSaveRecord = async (record: any) => {
     try {
       let endpoint = '/api/sheets/expense';
-      let body: any = { expense: record };
+      let body: any = { 
+        sheetName: record.sheetName || 'Personal_Expenses',
+        expense: record 
+      };
 
       if (record.type === 'Goal') {
         endpoint = '/api/sheets/goals';
@@ -204,7 +210,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
           currentAmount: record.amount
         };
       } else if (record.type === 'Income') {
+        // Income ALWAYS goes to Personal_Expenses in this logic, 
+        // but let's respect the sheetName if provided.
+        body.sheetName = 'Personal_Expenses'; 
         body.expense.category = record.category || 'Income';
+        body.expense.type = 'Income';
       } else if (record.type === 'Monthly') {
         const familyRes = await fetch('/api/sheets/family');
         const familyData = await familyRes.json();
@@ -217,21 +227,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
           familyCode: familyData.familyCode
         };
       } else if (record.type === 'Expense') {
-        const familyRes = await fetch('/api/sheets/family');
-        const familyData = await familyRes.json();
-        
-        if (familyData.familyCode) {
-           endpoint = '/api/sheets/expense';
-           body = {
-             sheetName: 'Family_Expenses',
-             familyCode: familyData.familyCode,
-             expense: {
-               amount: record.amount,
-               category: record.category,
-               note: record.note,
-               date: record.date || new Date().toISOString()
-             }
-           };
+        if (body.sheetName === 'Family_Expenses') {
+          const familyRes = await fetch('/api/sheets/family');
+          const familyData = await familyRes.json();
+          body.familyCode = familyData.familyCode;
+          body.expense.type = 'Expense';
+        } else {
+          body.expense.type = 'Expense';
         }
       }
 
@@ -313,7 +315,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
     setPrefillAmount,
     calculatorHistory,
     fetchCalculatorHistory,
-  }), [isLoggedIn, mounted, status, theme, session, isAddModalOpen, lastRefresh, categories, incomeCategories, pendingItems, role, isCalculatorOpen, prefillAmount, calculatorHistory]);
+    initialType,
+    setInitialType,
+  }), [isLoggedIn, mounted, status, theme, session, isAddModalOpen, lastRefresh, categories, incomeCategories, pendingItems, role, isCalculatorOpen, prefillAmount, calculatorHistory, initialType]);
 
   if (!mounted || status === 'loading' || showSplash) {
     return <LoadingScreen />;
@@ -329,7 +333,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <>
 
             <FAB />
-            <CalculatorFAB />
             <BottomNavbar />
 
             {/* Notification Backdrop */}
@@ -412,6 +415,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           onSave={handleSaveRecord}
           categories={categories}
           incomeCategories={incomeCategories}
+          initialType={initialType}
         />
         <CalculatorModal 
           isOpen={isCalculatorOpen}
