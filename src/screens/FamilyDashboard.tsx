@@ -3,14 +3,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Users, Plus, Calendar, CheckCircle2, AlertCircle, Sparkles, X, Mail } from 'lucide-react';
+import { Users, Plus, Calendar, CheckCircle2, AlertCircle, Sparkles, X, Mail, Edit2 } from 'lucide-react';
 import { useAppShell } from '@/components/AppShell';
 import Header from '@/components/layout/Header';
 import { useRouter } from 'next/navigation';
 import LoadingScreen from './LoadingScreen';
 
 export default function FamilyDashboard() {
-  const { isAddModalOpen, setIsAddModalOpen, setIsNotificationOpen, pendingCount, role: userRole } = useAppShell();
+  const { isAddModalOpen, setIsAddModalOpen, setInitialType, setIsNotificationOpen, pendingCount, role: userRole } = useAppShell();
   const [data, setData] = useState<any>({ expenses: [], members: [], monthly: [], role: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -242,10 +242,13 @@ export default function FamilyDashboard() {
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Monthly Commitments</h3>
           {data.role === 'Admin' && (
              <button 
-               onClick={() => setIsAddModalOpen(true)}
-               className="p-2 bg-primary text-white rounded-lg flex items-center gap-1 text-[10px] font-black uppercase tracking-widest"
+               onClick={() => {
+                 setInitialType('Monthly');
+                 setIsAddModalOpen(true);
+               }}
+               className="p-2 bg-primary text-white rounded-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest"
              >
-               <Plus size={14} /> Add Monthly
+               <Edit2 size={12} /> Add Monthly
              </button>
           )}
         </div>
@@ -302,10 +305,13 @@ export default function FamilyDashboard() {
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Shared Expenses</h3>
           {data.role === 'Admin' && (
              <button 
-               onClick={() => setIsAddModalOpen(true)}
-               className="p-2 bg-primary text-white rounded-lg flex items-center gap-1 text-[10px] font-black uppercase tracking-widest"
+               onClick={() => {
+                 setInitialType('Expense');
+                 setIsAddModalOpen(true);
+               }}
+               className="p-2 bg-primary text-white rounded-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest"
              >
-               <Plus size={14} /> Add Expense
+               <Edit2 size={12} /> Add Expense
              </button>
           )}
         </div>

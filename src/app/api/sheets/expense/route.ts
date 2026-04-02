@@ -86,7 +86,7 @@ export async function POST(request: Request) {
         expense.amount,
         expense.category,
         expense.note || '',
-        expense.isPaid ?? true,
+        expense.isPaid !== undefined ? expense.isPaid : true,
         expense.type || 'Expense'
       ];
       await service.appendRow(spreadsheetId, 'Personal_Expenses', rowData);

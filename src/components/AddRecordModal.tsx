@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, TrendingUp, TrendingDown, Target } from 'lucide-react';
 import { useAppShell } from './AppShell';
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 type RecordType = 'Expense' | 'Income' | 'Goal' | 'Monthly';
 
@@ -15,12 +16,30 @@ interface AddRecordModalProps {
   categories: string[];
   incomeCategories: string[];
   role?: string;
+  initialType?: RecordType;
 }
 
-export default function AddRecordModal({ isOpen, onClose, onSave, categories, incomeCategories, role }: AddRecordModalProps) {
-  const [type, setType] = useState<RecordType>('Expense');
+export default function AddRecordModal({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  categories, 
+  incomeCategories, 
+  role,
+  initialType = 'Expense' 
+}: AddRecordModalProps) {
+  const [type, setType] = useState<RecordType>(initialType);
   const [amount, setAmount] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setType(initialType);
+      setIsOthersSelected(false);
+      if (initialType === 'Income') setCategory(incomeCategories[0] || 'Salary');
+      else if (initialType === 'Expense') setCategory(categories[0] || 'Food');
+    }
+  }, [isOpen, initialType, incomeCategories, categories]);
   const [category, setCategory] = useState(type === 'Income' ? (incomeCategories[0] || 'Salary') : (categories[0] || 'Food'));
   const [customCategory, setCustomCategory] = useState('');
   const [isOthersSelected, setIsOthersSelected] = useState(false);
@@ -28,6 +47,8 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories, in
   const [note, setNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { prefillAmount } = useAppShell();
+
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isOpen && prefillAmount) {
@@ -56,7 +77,8 @@ export default function AddRecordModal({ isOpen, onClose, onSave, categories, in
         note,
         date: new Date().toISOString(),
         isPaid: type !== 'Expense',
-        dueDay: parseInt(dueDay) || 1
+        dueDay: parseInt(dueDay) || 1,
+        sheetName: pathname === '/family' ? 'Family_Expenses' : 'Personal_Expenses'
       };
       await onSave(data);
       setAmount('');
