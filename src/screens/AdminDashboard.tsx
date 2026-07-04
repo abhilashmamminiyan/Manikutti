@@ -48,7 +48,8 @@ import {
   Savings as SavingsIcon,
   CreditCard as LoanIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
@@ -111,6 +112,12 @@ export default function AdminDashboard() {
   const [editExpenseCategory, setEditExpenseCategory] = useState('');
   const [editExpenseNote, setEditExpenseNote] = useState('');
   const [editExpenseLoading, setEditExpenseLoading] = useState(false);
+
+  // Send Notification States
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationLoading, setNotificationLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -412,6 +419,35 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle Send Notification Submit
+  const handleSendNotification = async () => {
+    if (!notificationTitle || !notificationMessage) {
+      alert('Please fill all fields.');
+      return;
+    }
+    setNotificationLoading(true);
+    try {
+      const res = await fetch('/api/sheets/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: notificationTitle,
+          message: notificationMessage
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send notification');
+      alert('Test notification broadcasted to family successfully!');
+      setNotificationDialogOpen(false);
+      setNotificationTitle('');
+      setNotificationMessage('');
+    } catch (e: any) {
+      alert(e.message || 'Failed to send notification');
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: '#f8f9fa' }}>
@@ -493,7 +529,7 @@ export default function AdminDashboard() {
             })}
           </List>
           <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
-          <Box sx={{ px: 2 }}>
+          <Box sx={{ px: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Button 
               fullWidth 
               variant="outlined" 
@@ -503,6 +539,16 @@ export default function AdminDashboard() {
               startIcon={<PeopleIcon />}
             >
               Invite Member
+            </Button>
+            <Button 
+              fullWidth 
+              variant="outlined" 
+              color="inherit" 
+              onClick={() => setNotificationDialogOpen(true)}
+              sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
+              startIcon={<NotificationsIcon />}
+            >
+              Send Notification
             </Button>
           </Box>
         </Box>
@@ -1254,6 +1300,47 @@ export default function AdminDashboard() {
             sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
           >
             {editExpenseLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Send Notification Dialog */}
+      <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Send Test Notification</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', bgcolor: 'rgba(0,105,114,0.05)', p: 1.5, borderRadius: 2 }}>
+              📣 This will broadcast a test notification to all family members. They will see it in their activity feeds.
+            </Typography>
+            <TextField 
+              label="Notification Title" 
+              placeholder="e.g. Budget Alert, System Update"
+              fullWidth 
+              value={notificationTitle} 
+              onChange={(e) => setNotificationTitle(e.target.value)}
+              disabled={notificationLoading}
+            />
+            <TextField 
+              label="Notification Message" 
+              placeholder="e.g. Please update your monthly utilities."
+              multiline
+              rows={3}
+              fullWidth 
+              value={notificationMessage} 
+              onChange={(e) => setNotificationMessage(e.target.value)}
+              disabled={notificationLoading}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setNotificationDialogOpen(false)} disabled={notificationLoading}>Cancel</Button>
+          <Button 
+            onClick={handleSendNotification} 
+            variant="contained" 
+            disabled={notificationLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {notificationLoading ? <CircularProgress size={20} color="inherit" /> : 'Send Notification'}
           </Button>
         </DialogActions>
       </Dialog>

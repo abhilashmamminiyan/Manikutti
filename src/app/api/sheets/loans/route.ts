@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         name: r[0],
         amount: parseFloat(r[1]) || 0,
         monthlyEMI: parseFloat(r[2]) || 0,
-        assignedTo: r[3],
+        assignedTo: r[3]?.toString().trim() || '',
         familyCode: r[4],
         adminEmail: r[5],
         status: r[6] || 'Active',

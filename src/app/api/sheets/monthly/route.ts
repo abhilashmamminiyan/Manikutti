@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         lastPaidDate: row[6] || '',
         lastPaidBy: row[7] || '',
         linkedLoan: row[8] || '',
-        assignedTo: row[9] || 'Family',
+        assignedTo: row[9]?.toString().trim() || 'Family',
         id: index + 1
       }))
       .filter(r => r.familyCode === familyCode);

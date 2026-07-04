@@ -75,12 +75,12 @@ export async function GET(request: Request) {
 
     // 4. Map and filter family members
     const members = memberRows.slice(1)
-      .filter(r => r[0] === familyCode)
+      .filter(r => r[0]?.toString().trim() === familyCode?.toString().trim())
       .map(r => ({
-        email: r[1],
-        role: r[2],
-        joinedDate: r[3],
-        nickname: r[4] || 'Unknown',
+        email: r[1]?.toString().trim() || '',
+        role: r[2]?.toString().trim() || 'Member',
+        joinedDate: r[3]?.toString().trim() || '',
+        nickname: r[4]?.toString().trim() || r[1]?.toString().split('@')[0] || 'Unknown',
         monthlyIncome: parseFloat(r[5]) || 0
       }));
 
