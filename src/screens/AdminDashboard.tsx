@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
+  const [invitePersonalSheetId, setInvitePersonalSheetId] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
@@ -93,6 +94,10 @@ export default function AdminDashboard() {
       alert('Please enter a valid email.');
       return;
     }
+    if (!invitePersonalSheetId) {
+      alert('Please enter the Personal Spreadsheet ID.');
+      return;
+    }
     setInviteLoading(true);
     try {
       const res = await fetch('/api/sheets/family', {
@@ -101,7 +106,8 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           action: 'invite',
           email: inviteEmail,
-          name: inviteName || 'Family member'
+          name: inviteName || 'Family member',
+          personalSpreadsheetId: invitePersonalSheetId
         })
       });
       const data = await res.json();
@@ -110,6 +116,7 @@ export default function AdminDashboard() {
       setInviteDialogOpen(false);
       setInviteEmail('');
       setInviteName('');
+      setInvitePersonalSheetId('');
     } catch (e: any) {
       alert(e.message || 'Failed to send invite');
     } finally {
@@ -576,6 +583,9 @@ export default function AdminDashboard() {
         <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Invite Family Member</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block', bgcolor: 'rgba(0,105,114,0.05)', p: 1.5, borderRadius: 2 }}>
+              ℹ️ Please create a blank sheet in Google Drive, share it with the service account email (<code>manikutti-sheets-driver@manikutti-app.iam.gserviceaccount.com</code>) as <b>Editor</b>, then enter its ID below.
+            </Typography>
             <TextField 
               label="Email Address" 
               type="email" 
@@ -589,6 +599,14 @@ export default function AdminDashboard() {
               fullWidth 
               value={inviteName} 
               onChange={(e) => setInviteName(e.target.value)}
+              disabled={inviteLoading}
+            />
+            <TextField 
+              label="Personal Spreadsheet ID" 
+              placeholder="1a2b3c4D5e..."
+              fullWidth 
+              value={invitePersonalSheetId} 
+              onChange={(e) => setInvitePersonalSheetId(e.target.value)}
               disabled={inviteLoading}
             />
           </Box>

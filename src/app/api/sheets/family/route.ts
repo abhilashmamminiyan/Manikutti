@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome } = body;
+    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome, personalSpreadsheetId } = body;
     const service = new GoogleSheetsService(email);
 
     if (action === 'create') {
@@ -80,6 +80,7 @@ export async function POST(request: Request) {
 
     if (action === 'invite') {
       if (!targetInviteEmail) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+      if (!personalSpreadsheetId) return NextResponse.json({ error: 'Personal Spreadsheet ID is required to invite a member.' }, { status: 400 });
       
       const spreadsheetId = await service.findOrCreateSheet('Family');
       if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
@@ -90,17 +91,21 @@ export async function POST(request: Request) {
       if (!adminRow) return NextResponse.json({ error: 'Only admins can invite members' }, { status: 403 });
       
       const familyCode = adminRow[0];
+      const cleanPersonalId = personalSpreadsheetId.trim();
       
       // Retrieve spreadsheet name (mock or fallback since we don't query drive file names on client token)
       const displayName = name || 'Family';
 
-      // Share the spreadsheet first
-      const shared = await service.shareSheet(spreadsheetId, targetInviteEmail);
-      if (!shared) return NextResponse.json({ error: 'Failed to share spreadsheet with invitee' }, { status: 500 });
+      // Share the family spreadsheet and the assigned personal spreadsheet with the invitee
+      const sharedFamily = await service.shareSheet(spreadsheetId, targetInviteEmail);
+      if (!sharedFamily) return NextResponse.json({ error: 'Failed to share family spreadsheet with invitee' }, { status: 500 });
+
+      const sharedPersonal = await service.shareSheet(cleanPersonalId, targetInviteEmail);
+      if (!sharedPersonal) return NextResponse.json({ error: 'Failed to share personal spreadsheet with invitee. Make sure you shared it with the Service Account email first!' }, { status: 500 });
 
       // Generate token
       const token = jwt.sign(
-        { spreadsheetId, familyCode, email: targetInviteEmail },
+        { spreadsheetId, familyCode, email: targetInviteEmail, personalSpreadsheetId: cleanPersonalId },
         process.env.NEXTAUTH_SECRET || 'secret',
         { expiresIn: '7d' }
       );
@@ -110,7 +115,7 @@ export async function POST(request: Request) {
         token,
         targetInviteEmail,
         familyCode,
-        spreadsheetId,
+        cleanPersonalId,
         'Pending',
         new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       ]);
@@ -131,7 +136,7 @@ export async function POST(request: Request) {
 
       try {
         const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret') as any;
-        const { spreadsheetId: inviteSpreadsheetId, familyCode, email: inviteeEmail } = decoded;
+        const { spreadsheetId: inviteSpreadsheetId, familyCode, email: inviteeEmail, personalSpreadsheetId } = decoded;
 
         if (inviteeEmail?.toLowerCase() !== email.toLowerCase()) {
           return NextResponse.json({ error: 'This invitation was sent to another email address.' }, { status: 403 });
@@ -143,7 +148,7 @@ export async function POST(request: Request) {
         }
         
         // Check if invitation exists and is pending
-        const invitations = await service.getSheetData(spreadsheetId, 'Invitations!A:E');
+        const invitations = await service.getSheetData(spreadsheetId, 'Invitations!A:F');
         const inviteIndex = invitations.findIndex(r => r[0] === token && r[4] === 'Pending');
         
         if (inviteIndex === -1) {
@@ -153,9 +158,21 @@ export async function POST(request: Request) {
         // Add to membership
         await service.appendRow(spreadsheetId, 'Family_Members', [familyCode, email, 'Member', new Date().toISOString()]);
 
+        // Record the new mapping in the Admin spreadsheet index
+        const adminSheetId = process.env.ADMIN_SPREADSHEET_ID;
+        if (adminSheetId && personalSpreadsheetId) {
+          const userSheetsRows = await service.getSheetData(adminSheetId, 'User_Sheets!A:B');
+          const mappingExists = userSheetsRows.slice(1).some(r => r[0]?.toString().trim().toLowerCase() === email.toLowerCase());
+          if (!mappingExists) {
+            await service.appendRow(adminSheetId, 'User_Sheets', [email, personalSpreadsheetId]);
+          }
+          // Ensure personal sheets exist
+          await service.ensureSheetsExist(personalSpreadsheetId, 'Personal');
+        }
+
         // Update invitation status
         invitations[inviteIndex][4] = 'Accepted';
-        await service.updateSheetData(spreadsheetId, 'Invitations!A:E', invitations);
+        await service.updateSheetData(spreadsheetId, 'Invitations!A:F', invitations);
 
         return NextResponse.json({ success: true });
 
