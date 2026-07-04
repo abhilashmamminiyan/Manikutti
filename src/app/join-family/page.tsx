@@ -64,7 +64,7 @@ function JoinFamilyContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
         <ShieldCheck size={48} className="text-primary mb-6" />
-        <h1 className="text-2xl font-bold mb-4">You're Invited!</h1>
+        <h1 className="text-2xl font-bold mb-4">You&apos;re Invited!</h1>
         <p className="text-slate-500 mb-8 max-w-sm">
           Please sign in with your Google account to accept the invitation and join your family sanctuary.
         </p>
