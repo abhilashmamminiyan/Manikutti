@@ -44,3 +44,12 @@ npm run build
 npm run start
 ```
 
+---
+
+## 🚀 CI/CD Pipeline & Deployments
+
+This repository uses a decentralized **Polyrepo** architecture, meaning it manages its own builds and deployments independently from the Mobile App.
+
+* **Quality Gates (PRs):** Any Pull Request opened against the `main` branch automatically triggers quality checks (Linting & Build Tests).
+* **Automated Deployments:** A push/merge to `main` automatically deploys the Next.js application to its hosting provider (Vercel / Firebase Hosting).
+* **Parent Sync:** Once a release is stable on `main`, an automated GitHub Action syncs the updated codebase back to the `manikutti-hub` parent repository, ensuring the parent always tracks the latest production-ready code.
