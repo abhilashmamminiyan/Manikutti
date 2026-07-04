@@ -15,18 +15,33 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ notifications: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Notifications!A:F');
+    const [rows, memberRows] = await Promise.all([
+      service.getSheetData(spreadsheetId, 'Notifications!A:F'),
+      service.getSheetData(spreadsheetId, 'Family_Members!A:F')
+    ]);
+
+    const membersMap = new Map(
+      memberRows.slice(1).map(m => [
+        m[1]?.toString().trim().toLowerCase(),
+        m[4]?.toString().trim() || m[1]?.toString().split('@')[0] || 'Unknown'
+      ])
+    );
+
     const notifications = rows.slice(1)
       .filter(r => r[3] === familyCode)
-      .map((r, index) => ({
-        date: r[0],
-        title: r[1],
-        message: r[2],
-        familyCode: r[3],
-        type: r[4] || 'general',
-        createdBy: r[5] || '',
-        id: index + 1
-      }))
+      .map((r, index) => {
+        const creatorEmail = r[5]?.toString().trim().toLowerCase();
+        const createdByNickname = creatorEmail ? (membersMap.get(creatorEmail) || creatorEmail) : 'System';
+        return {
+          date: r[0],
+          title: r[1],
+          message: r[2],
+          familyCode: r[3],
+          type: r[4] || 'general',
+          createdBy: createdByNickname,
+          id: index + 1
+        };
+      })
       .reverse(); // Newest first
 
     return NextResponse.json({ notifications });

@@ -84,17 +84,23 @@ export async function GET(request: Request) {
         monthlyIncome: parseFloat(r[5]) || 0
       }));
 
+    const membersMap = new Map(members.map(m => [m.email.toLowerCase(), m.nickname]));
+
     // 5. Map and filter family expenses
     const expenses = expenseRows.slice(1)
-      .map((r, index) => ({
-        date: r[0],
-        amount: parseFloat(r[1]) || 0,
-        category: r[2],
-        note: r[3],
-        addedBy: r[4],
-        familyCode: r[5],
-        id: index + 1
-      }))
+      .map((r, index) => {
+        const addedByEmail = r[4]?.toString().trim().toLowerCase();
+        const addedByNickname = addedByEmail ? (membersMap.get(addedByEmail) || r[4]) : 'System';
+        return {
+          date: r[0],
+          amount: parseFloat(r[1]) || 0,
+          category: r[2],
+          note: r[3],
+          addedBy: addedByNickname,
+          familyCode: r[5],
+          id: index + 1
+        };
+      })
       .filter(r => r.familyCode === familyCode);
 
     // 6. Map and filter monthly dues
