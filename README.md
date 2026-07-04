@@ -53,3 +53,5 @@ This repository uses a decentralized **Polyrepo** architecture, meaning it manag
 * **Quality Gates (PRs):** Any Pull Request opened against the `main` branch automatically triggers quality checks (Linting & Build Tests).
 * **Automated Deployments:** A push/merge to `main` automatically deploys the Next.js application to its hosting provider (Vercel / Firebase Hosting).
 * **Parent Sync:** Once a release is stable on `main`, an automated GitHub Action syncs the updated codebase back to the `manikutti-hub` parent repository, ensuring the parent always tracks the latest production-ready code.
+
+> **Note:** For a complete architectural overview of how the mobile and web repositories sync together, see the [`CI_CD_PIPELINE.md`](../CI_CD_PIPELINE.md) document in the parent repository.
