@@ -34,7 +34,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon, 
@@ -990,20 +994,21 @@ export default function AdminDashboard() {
               disabled={addDueLoading}
               inputProps={{ min: 1, max: 31 }}
             />
-            <TextField
-              select
-              label="Assign to Member"
-              fullWidth
-              value={dueAssignedTo}
-              onChange={(e) => setDueAssignedTo(e.target.value)}
-              disabled={addDueLoading}
-              SelectProps={{ native: true }}
-            >
-              <option value="Family">Family-wide (Shared)</option>
-              {members.map((m: any) => (
-                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
-              ))}
-            </TextField>
+            <FormControl fullWidth>
+              <InputLabel id="add-due-assign-label">Assign to Member</InputLabel>
+              <Select
+                labelId="add-due-assign-label"
+                label="Assign to Member"
+                value={dueAssignedTo}
+                onChange={(e) => setDueAssignedTo(e.target.value as string)}
+                disabled={addDueLoading}
+              >
+                <MenuItem value="Family">Family-wide (Shared)</MenuItem>
+                {members.map((m: any) => (
+                  <MenuItem key={m.email} value={m.email}>{m.nickname} ({m.email})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -1050,20 +1055,21 @@ export default function AdminDashboard() {
               disabled={addLoanLoading}
               placeholder="₹"
             />
-            <TextField
-              select
-              label="Assign to Member"
-              fullWidth
-              value={loanAssignedTo}
-              onChange={(e) => setLoanAssignedTo(e.target.value)}
-              disabled={addLoanLoading}
-              SelectProps={{ native: true }}
-            >
-              <option value="">Select Member</option>
-              {members.map((m: any) => (
-                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
-              ))}
-            </TextField>
+            <FormControl fullWidth>
+              <InputLabel id="add-loan-assign-label">Assign to Member</InputLabel>
+              <Select
+                labelId="add-loan-assign-label"
+                label="Assign to Member"
+                value={loanAssignedTo}
+                onChange={(e) => setLoanAssignedTo(e.target.value as string)}
+                disabled={addLoanLoading}
+              >
+                <MenuItem value="">Select Member</MenuItem>
+                {members.map((m: any) => (
+                  <MenuItem key={m.email} value={m.email}>{m.nickname} ({m.email})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -1154,20 +1160,21 @@ export default function AdminDashboard() {
               disabled={editDueLoading}
               inputProps={{ min: 1, max: 31 }}
             />
-            <TextField
-              select
-              label="Assign to Member"
-              fullWidth
-              value={editDueAssignedTo}
-              onChange={(e) => setEditDueAssignedTo(e.target.value)}
-              disabled={editDueLoading}
-              SelectProps={{ native: true }}
-            >
-              <option value="Family">Family-wide (Shared)</option>
-              {members.map((m: any) => (
-                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
-              ))}
-            </TextField>
+            <FormControl fullWidth>
+              <InputLabel id="edit-due-assign-label">Assign to Member</InputLabel>
+              <Select
+                labelId="edit-due-assign-label"
+                label="Assign to Member"
+                value={editDueAssignedTo}
+                onChange={(e) => setEditDueAssignedTo(e.target.value as string)}
+                disabled={editDueLoading}
+              >
+                <MenuItem value="Family">Family-wide (Shared)</MenuItem>
+                {members.map((m: any) => (
+                  <MenuItem key={m.email} value={m.email}>{m.nickname} ({m.email})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -1211,32 +1218,34 @@ export default function AdminDashboard() {
               onChange={(e) => setEditLoanEMI(e.target.value)}
               disabled={editLoanLoading}
             />
-            <TextField
-              select
-              label="Assign to Member"
-              fullWidth
-              value={editLoanAssignedTo}
-              onChange={(e) => setEditLoanAssignedTo(e.target.value)}
-              disabled={editLoanLoading}
-              SelectProps={{ native: true }}
-            >
-              <option value="">Select Member</option>
-              {members.map((m: any) => (
-                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Loan Status"
-              fullWidth
-              value={editLoanStatus}
-              onChange={(e) => setEditLoanStatus(e.target.value)}
-              disabled={editLoanLoading}
-              SelectProps={{ native: true }}
-            >
-              <option value="Active">Active</option>
-              <option value="Closed">Closed</option>
-            </TextField>
+            <FormControl fullWidth>
+              <InputLabel id="edit-loan-assign-label">Assign to Member</InputLabel>
+              <Select
+                labelId="edit-loan-assign-label"
+                label="Assign to Member"
+                value={editLoanAssignedTo}
+                onChange={(e) => setEditLoanAssignedTo(e.target.value as string)}
+                disabled={editLoanLoading}
+              >
+                <MenuItem value="">Select Member</MenuItem>
+                {members.map((m: any) => (
+                  <MenuItem key={m.email} value={m.email}>{m.nickname} ({m.email})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="edit-loan-status-label">Loan Status</InputLabel>
+              <Select
+                labelId="edit-loan-status-label"
+                label="Loan Status"
+                value={editLoanStatus}
+                onChange={(e) => setEditLoanStatus(e.target.value as string)}
+                disabled={editLoanLoading}
+              >
+                <MenuItem value="Active">Active</MenuItem>
+                <MenuItem value="Closed">Closed</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
