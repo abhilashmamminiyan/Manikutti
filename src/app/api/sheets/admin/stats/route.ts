@@ -86,7 +86,6 @@ export async function GET(request: Request) {
 
     // 5. Map and filter family expenses
     const expenses = expenseRows.slice(1)
-      .filter(r => r[5] === familyCode)
       .map((r, index) => ({
         date: r[0],
         amount: parseFloat(r[1]) || 0,
@@ -95,11 +94,11 @@ export async function GET(request: Request) {
         addedBy: r[4],
         familyCode: r[5],
         id: index + 1
-      }));
+      }))
+      .filter(r => r.familyCode === familyCode);
 
     // 6. Map and filter monthly dues
     const dues = monthlyRows.slice(1)
-      .filter(r => r[4] === familyCode)
       .map((r, index) => ({
         title: r[0],
         amount: parseFloat(r[1]) || 0,
@@ -109,12 +108,14 @@ export async function GET(request: Request) {
         adminEmail: r[5],
         lastPaidDate: r[6] || '',
         lastPaidBy: r[7] || '',
+        linkedLoan: r[8] || '',
+        assignedTo: r[9] || 'Family',
         id: index + 1
-      }));
+      }))
+      .filter(r => r.familyCode === familyCode);
 
     // 7. Map and filter loans
     const loans = loanRows.slice(1)
-      .filter(r => r[4] === familyCode)
       .map((r, index) => ({
         name: r[0],
         amount: parseFloat(r[1]) || 0,
@@ -124,7 +125,8 @@ export async function GET(request: Request) {
         adminEmail: r[5],
         status: r[6] || 'Active',
         id: index + 1
-      }));
+      }))
+      .filter(r => r.familyCode === familyCode);
 
     // 8. Map employee spreadsheets from Admin Spreadsheet Index
     const userSheets = userSheetsRows.slice(1).map((r, index) => {

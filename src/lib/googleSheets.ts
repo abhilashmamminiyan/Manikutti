@@ -274,4 +274,33 @@ export class GoogleSheetsService {
       range,
     });
   }
+
+  public async deleteRow(spreadsheetId: string, sheetName: string, rowIndex: number) {
+    const sheetInfo = await this.sheets.spreadsheets.get({
+      auth: this.auth,
+      spreadsheetId,
+    });
+    const sheet = sheetInfo.data.sheets?.find(s => s.properties?.title === sheetName);
+    if (!sheet) throw new Error(`Sheet ${sheetName} not found`);
+    const sheetId = sheet.properties?.sheetId;
+
+    await this.sheets.spreadsheets.batchUpdate({
+      auth: this.auth,
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: 'ROWS',
+                startIndex: rowIndex - 1,
+                endIndex: rowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+  }
 }

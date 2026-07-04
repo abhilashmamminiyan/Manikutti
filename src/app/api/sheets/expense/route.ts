@@ -142,3 +142,83 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id, sheetName, date, amount, category, note } = await request.json();
+    if (id === undefined || !sheetName || !date || amount === undefined || !category) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+
+    const service = new GoogleSheetsService(email);
+    const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
+    const spreadsheetId = await service.findOrCreateSheet(type);
+    if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
+
+    // Admin Check for Family Expenses
+    if (sheetName === 'Family_Expenses') {
+      const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+      const memberRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+      if (!memberRow || memberRow[2] !== 'Admin') {
+        return NextResponse.json({ error: 'Only Admins can update family expenses' }, { status: 403 });
+      }
+    }
+
+    const rowIndex = id + 1; // row index in sheet is id + 1
+
+    // Updates: Date (col A), Amount (col B), Category (col C), Note (col D)
+    const updates = [
+      { range: `${sheetName}!A${rowIndex}`, values: [[date]] },
+      { range: `${sheetName}!B${rowIndex}`, values: [[amount]] },
+      { range: `${sheetName}!C${rowIndex}`, values: [[category]] },
+      { range: `${sheetName}!D${rowIndex}`, values: [[note || '']] }
+    ];
+
+    for (const update of updates) {
+      await service.updateSheetData(spreadsheetId, update.range, update.values);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Expense PUT Error:', error);
+    return NextResponse.json({ error: 'Update failed', details: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const url = new URL(request.url);
+    const idStr = url.searchParams.get('id');
+    const sheetName = url.searchParams.get('sheetName');
+    if (!idStr || !sheetName) return NextResponse.json({ error: 'ID and sheetName parameters required' }, { status: 400 });
+    const id = parseInt(idStr);
+
+    const service = new GoogleSheetsService(email);
+    const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
+    const spreadsheetId = await service.findOrCreateSheet(type);
+    if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
+
+    // Admin Check for Family Expenses
+    if (sheetName === 'Family_Expenses') {
+      const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+      const memberRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+      if (!memberRow || memberRow[2] !== 'Admin') {
+        return NextResponse.json({ error: 'Only Admins can delete family expenses' }, { status: 403 });
+      }
+    }
+
+    const rowIndex = id + 1; // row index in sheet is id + 1
+    await service.deleteRow(spreadsheetId, sheetName, rowIndex);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Expense DELETE Error:', error);
+    return NextResponse.json({ error: 'Delete failed', details: error.message }, { status: 500 });
+  }
+}

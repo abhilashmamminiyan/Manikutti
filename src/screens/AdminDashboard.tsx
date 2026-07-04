@@ -46,7 +46,9 @@ import {
   TrendingUp as IncomeIcon,
   TrendingDown as SpendIcon,
   Savings as SavingsIcon,
-  CreditCard as LoanIcon
+  CreditCard as LoanIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
@@ -81,6 +83,34 @@ export default function AdminDashboard() {
   const [loanEMI, setLoanEMI] = useState('');
   const [loanAssignedTo, setLoanAssignedTo] = useState('');
   const [addLoanLoading, setAddLoanLoading] = useState(false);
+
+  // Edit Dues Dialog States
+  const [editDueDialogOpen, setEditDueDialogOpen] = useState(false);
+  const [editingDue, setEditingDue] = useState<any>(null);
+  const [editDueTitle, setEditDueTitle] = useState('');
+  const [editDueAmount, setEditDueAmount] = useState('');
+  const [editDueDay, setEditDueDay] = useState('1');
+  const [editDueAssignedTo, setEditDueAssignedTo] = useState('');
+  const [editDueLoading, setEditDueLoading] = useState(false);
+
+  // Edit Loan Dialog States
+  const [editLoanDialogOpen, setEditLoanDialogOpen] = useState(false);
+  const [editingLoan, setEditingLoan] = useState<any>(null);
+  const [editLoanName, setEditLoanName] = useState('');
+  const [editLoanAmount, setEditLoanAmount] = useState('');
+  const [editLoanEMI, setEditLoanEMI] = useState('');
+  const [editLoanAssignedTo, setEditLoanAssignedTo] = useState('');
+  const [editLoanStatus, setEditLoanStatus] = useState('Active');
+  const [editLoanLoading, setEditLoanLoading] = useState(false);
+
+  // Edit Expense Dialog States
+  const [editExpenseDialogOpen, setEditExpenseDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [editExpenseDate, setEditExpenseDate] = useState('');
+  const [editExpenseAmount, setEditExpenseAmount] = useState('');
+  const [editExpenseCategory, setEditExpenseCategory] = useState('');
+  const [editExpenseNote, setEditExpenseNote] = useState('');
+  const [editExpenseLoading, setEditExpenseLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -205,6 +235,180 @@ export default function AdminDashboard() {
       alert(e.message || 'Failed to add loan');
     } finally {
       setAddLoanLoading(false);
+    }
+  };
+
+  // Handle Open Edit Due Dialog
+  const handleOpenEditDue = (due: any) => {
+    setEditingDue(due);
+    setEditDueTitle(due.title);
+    setEditDueAmount(due.amount.toString());
+    setEditDueDay(due.dueDay.toString());
+    setEditDueAssignedTo(due.assignedTo || 'Family');
+    setEditDueDialogOpen(true);
+  };
+
+  // Handle Edit Due Submit
+  const handleEditDue = async () => {
+    if (!editDueTitle || !editDueAmount || !editDueDay) {
+      alert('Please fill all required fields.');
+      return;
+    }
+    setEditDueLoading(true);
+    try {
+      const res = await fetch('/api/sheets/monthly', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingDue.id,
+          title: editDueTitle,
+          amount: parseFloat(editDueAmount),
+          dueDay: parseInt(editDueDay),
+          assignedTo: editDueAssignedTo
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update monthly dues');
+      alert('Monthly dues updated successfully!');
+      setEditDueDialogOpen(false);
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to update monthly dues');
+    } finally {
+      setEditDueLoading(false);
+    }
+  };
+
+  // Handle Delete Due
+  const handleDeleteDue = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this monthly commitment?')) return;
+    try {
+      const res = await fetch(`/api/sheets/monthly?id=${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete monthly dues');
+      alert('Monthly dues deleted successfully!');
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete monthly dues');
+    }
+  };
+
+  // Handle Open Edit Loan Dialog
+  const handleOpenEditLoan = (loan: any) => {
+    setEditingLoan(loan);
+    setEditLoanName(loan.name);
+    setEditLoanAmount(loan.amount.toString());
+    setEditLoanEMI(loan.monthlyEMI.toString());
+    setEditLoanAssignedTo(loan.assignedTo);
+    setEditLoanStatus(loan.status);
+    setEditLoanDialogOpen(true);
+  };
+
+  // Handle Edit Loan Submit
+  const handleEditLoan = async () => {
+    if (!editLoanName || !editLoanAmount || !editLoanEMI || !editLoanAssignedTo) {
+      alert('Please fill all required fields.');
+      return;
+    }
+    setEditLoanLoading(true);
+    try {
+      const res = await fetch('/api/sheets/loans', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingLoan.id,
+          name: editLoanName,
+          amount: parseFloat(editLoanAmount),
+          monthlyEMI: parseFloat(editLoanEMI),
+          assignedTo: editLoanAssignedTo,
+          status: editLoanStatus
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update loan');
+      alert('Loan updated successfully!');
+      setEditLoanDialogOpen(false);
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to update loan');
+    } finally {
+      setEditLoanLoading(false);
+    }
+  };
+
+  // Handle Delete Loan
+  const handleDeleteLoan = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this loan? This will also delete any linked monthly EMI commitment.')) return;
+    try {
+      const res = await fetch(`/api/sheets/loans?id=${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete loan');
+      alert('Loan and its linked monthly commitment deleted successfully!');
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete loan');
+    }
+  };
+
+  // Handle Open Edit Expense Dialog
+  const handleOpenEditExpense = (exp: any) => {
+    setEditingExpense(exp);
+    setEditExpenseDate(exp.date ? exp.date.split('T')[0] : '');
+    setEditExpenseAmount(exp.amount.toString());
+    setEditExpenseCategory(exp.category);
+    setEditExpenseNote(exp.note);
+    setEditExpenseDialogOpen(true);
+  };
+
+  // Handle Edit Expense Submit
+  const handleEditExpense = async () => {
+    if (!editExpenseDate || !editExpenseAmount || !editExpenseCategory) {
+      alert('Please fill all required fields.');
+      return;
+    }
+    setEditExpenseLoading(true);
+    try {
+      const res = await fetch('/api/sheets/expense', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingExpense.id,
+          sheetName: 'Family_Expenses',
+          date: editExpenseDate,
+          amount: parseFloat(editExpenseAmount),
+          category: editExpenseCategory,
+          note: editExpenseNote
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update expense');
+      alert('Expense updated successfully!');
+      setEditExpenseDialogOpen(false);
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to update expense');
+    } finally {
+      setEditExpenseLoading(false);
+    }
+  };
+
+  // Handle Delete Expense
+  const handleDeleteExpense = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this expense transaction?')) return;
+    try {
+      const res = await fetch(`/api/sheets/expense?id=${id}&sheetName=Family_Expenses`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete expense');
+      alert('Expense transaction deleted successfully!');
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete expense');
     }
   };
 
@@ -474,6 +678,7 @@ export default function AdminDashboard() {
                       <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -486,6 +691,14 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>{row.note || '-'}</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ef4444' }}>-₹{row.amount.toLocaleString()}</TableCell>
+                        <TableCell align="center">
+                          <IconButton size="small" onClick={() => handleOpenEditExpense(row)} sx={{ color: '#006972' }}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDeleteExpense(row.id)} sx={{ color: '#ef4444' }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -599,12 +812,13 @@ export default function AdminDashboard() {
                           <TableCell sx={{ fontWeight: 'bold' }}>Due Day</TableCell>
                           <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {dues.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} align="center">No monthly bills configured.</TableCell>
+                            <TableCell colSpan={5} align="center">No monthly bills configured.</TableCell>
                           </TableRow>
                         ) : (
                           dues.map((row: any) => (
@@ -619,6 +833,14 @@ export default function AdminDashboard() {
                                 />
                               </TableCell>
                               <TableCell align="right" sx={{ fontWeight: 'bold' }}>₹{row.amount.toLocaleString()}</TableCell>
+                              <TableCell align="center">
+                                <IconButton size="small" onClick={() => handleOpenEditDue(row)} sx={{ color: '#006972' }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton size="small" onClick={() => handleDeleteDue(row.id)} sx={{ color: '#ef4444' }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
@@ -649,12 +871,13 @@ export default function AdminDashboard() {
                           <TableCell sx={{ fontWeight: 'bold' }}>Assigned To</TableCell>
                           <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 'bold' }}>EMI Amount</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {loans.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} align="center">No active loans found.</TableCell>
+                            <TableCell colSpan={5} align="center">No active loans found.</TableCell>
                           </TableRow>
                         ) : (
                           loans.map((row: any) => (
@@ -669,6 +892,14 @@ export default function AdminDashboard() {
                                 />
                               </TableCell>
                               <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ef4444' }}>₹{row.monthlyEMI.toLocaleString()}/mo</TableCell>
+                              <TableCell align="center">
+                                <IconButton size="small" onClick={() => handleOpenEditLoan(row)} sx={{ color: '#006972' }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton size="small" onClick={() => handleDeleteLoan(row.id)} sx={{ color: '#ef4444' }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
@@ -844,6 +1075,185 @@ export default function AdminDashboard() {
             sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
           >
             {inviteLoading ? <CircularProgress size={20} color="inherit" /> : 'Send Invitation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Monthly Due Dialog */}
+      <Dialog open={editDueDialogOpen} onClose={() => setEditDueDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Edit Monthly Dues</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField 
+              label="Dues / Bill Title" 
+              fullWidth 
+              value={editDueTitle} 
+              onChange={(e) => setEditDueTitle(e.target.value)}
+              disabled={editDueLoading}
+            />
+            <TextField 
+              label="Monthly Amount" 
+              type="number" 
+              fullWidth 
+              value={editDueAmount} 
+              onChange={(e) => setEditDueAmount(e.target.value)}
+              disabled={editDueLoading}
+            />
+            <TextField 
+              label="Due Day (1-31)" 
+              type="number" 
+              fullWidth 
+              value={editDueDay} 
+              onChange={(e) => setEditDueDay(e.target.value)}
+              disabled={editDueLoading}
+              inputProps={{ min: 1, max: 31 }}
+            />
+            <TextField
+              select
+              label="Assign to Member"
+              fullWidth
+              value={editDueAssignedTo}
+              onChange={(e) => setEditDueAssignedTo(e.target.value)}
+              disabled={editDueLoading}
+              SelectProps={{ native: true }}
+            >
+              <option value="Family">Family-wide (Shared)</option>
+              {members.map((m: any) => (
+                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
+              ))}
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setEditDueDialogOpen(false)} disabled={editDueLoading}>Cancel</Button>
+          <Button 
+            onClick={handleEditDue} 
+            variant="contained" 
+            disabled={editDueLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {editDueLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Loan Dialog */}
+      <Dialog open={editLoanDialogOpen} onClose={() => setEditLoanDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Edit Loan & EMI</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField 
+              label="Loan Name" 
+              fullWidth 
+              value={editLoanName} 
+              onChange={(e) => setEditLoanName(e.target.value)}
+              disabled={editLoanLoading}
+            />
+            <TextField 
+              label="Principal Amount" 
+              type="number" 
+              fullWidth 
+              value={editLoanAmount} 
+              onChange={(e) => setEditLoanAmount(e.target.value)}
+              disabled={editLoanLoading}
+            />
+            <TextField 
+              label="Monthly EMI" 
+              type="number" 
+              fullWidth 
+              value={editLoanEMI} 
+              onChange={(e) => setEditLoanEMI(e.target.value)}
+              disabled={editLoanLoading}
+            />
+            <TextField
+              select
+              label="Assign to Member"
+              fullWidth
+              value={editLoanAssignedTo}
+              onChange={(e) => setEditLoanAssignedTo(e.target.value)}
+              disabled={editLoanLoading}
+              SelectProps={{ native: true }}
+            >
+              <option value="">Select Member</option>
+              {members.map((m: any) => (
+                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Loan Status"
+              fullWidth
+              value={editLoanStatus}
+              onChange={(e) => setEditLoanStatus(e.target.value)}
+              disabled={editLoanLoading}
+              SelectProps={{ native: true }}
+            >
+              <option value="Active">Active</option>
+              <option value="Closed">Closed</option>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setEditLoanDialogOpen(false)} disabled={editLoanLoading}>Cancel</Button>
+          <Button 
+            onClick={handleEditLoan} 
+            variant="contained" 
+            disabled={editLoanLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {editLoanLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Expense Dialog */}
+      <Dialog open={editExpenseDialogOpen} onClose={() => setEditExpenseDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Edit Family Expense</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField 
+              label="Date" 
+              type="date"
+              fullWidth 
+              value={editExpenseDate} 
+              onChange={(e) => setEditExpenseDate(e.target.value)}
+              disabled={editExpenseLoading}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField 
+              label="Amount" 
+              type="number" 
+              fullWidth 
+              value={editExpenseAmount} 
+              onChange={(e) => setEditExpenseAmount(e.target.value)}
+              disabled={editExpenseLoading}
+            />
+            <TextField 
+              label="Category" 
+              fullWidth 
+              value={editExpenseCategory} 
+              onChange={(e) => setEditExpenseCategory(e.target.value)}
+              disabled={editExpenseLoading}
+              placeholder="e.g. Food, Transport, Rent"
+            />
+            <TextField 
+              label="Description / Note" 
+              fullWidth 
+              value={editExpenseNote} 
+              onChange={(e) => setEditExpenseNote(e.target.value)}
+              disabled={editExpenseLoading}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setEditExpenseDialogOpen(false)} disabled={editExpenseLoading}>Cancel</Button>
+          <Button 
+            onClick={handleEditExpense} 
+            variant="contained" 
+            disabled={editExpenseLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {editExpenseLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
