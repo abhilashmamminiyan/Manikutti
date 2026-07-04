@@ -162,8 +162,8 @@ export async function PUT(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id, title, amount, dueDay, assignedTo } = await request.json();
-    if (id === undefined || !title || amount === undefined || dueDay === undefined) {
+    const { id, title, amount, dueDay, assignedTo, status } = await request.json();
+    if (id === undefined || !title || amount === undefined || dueDay === undefined || !status) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
@@ -180,13 +180,28 @@ export async function PUT(request: Request) {
 
     const rowIndex = id + 1; // row index in sheet is id + 1
     
-    // Updates ranges in Monthly_Expenses: Title (col A), Amount (col B), Due Day (col C), Assigned To (col J)
+    // Updates ranges in Monthly_Expenses: Title (col A), Amount (col B), Due Day (col C), Status (col D), Assigned To (col J)
     const updates = [
       { range: `Monthly_Expenses!A${rowIndex}`, values: [[title]] },
       { range: `Monthly_Expenses!B${rowIndex}`, values: [[amount]] },
       { range: `Monthly_Expenses!C${rowIndex}`, values: [[dueDay]] },
+      { range: `Monthly_Expenses!D${rowIndex}`, values: [[status]] },
       { range: `Monthly_Expenses!J${rowIndex}`, values: [[assignedTo || 'Family']] }
     ];
+
+    if (status === 'Paid') {
+      // Get existing values to check if lastPaidDate is empty
+      const existing = await service.getSheetData(spreadsheetId, `Monthly_Expenses!G${rowIndex}:H${rowIndex}`);
+      const hasDate = existing[0]?.[0];
+      if (!hasDate) {
+        updates.push({ range: `Monthly_Expenses!G${rowIndex}`, values: [[new Date().toISOString()]] });
+        updates.push({ range: `Monthly_Expenses!H${rowIndex}`, values: [[email]] });
+      }
+    } else {
+      // Clear lastPaidDate and lastPaidBy
+      updates.push({ range: `Monthly_Expenses!G${rowIndex}`, values: [['']] });
+      updates.push({ range: `Monthly_Expenses!H${rowIndex}`, values: [['']] });
+    }
 
     for (const update of updates) {
       await service.updateSheetData(spreadsheetId, update.range, update.values);

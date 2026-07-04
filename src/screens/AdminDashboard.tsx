@@ -96,6 +96,7 @@ export default function AdminDashboard() {
   const [editDueAmount, setEditDueAmount] = useState('');
   const [editDueDay, setEditDueDay] = useState('1');
   const [editDueAssignedTo, setEditDueAssignedTo] = useState('');
+  const [editDueStatus, setEditDueStatus] = useState('Unpaid');
   const [editDueLoading, setEditDueLoading] = useState(false);
 
   // Edit Loan Dialog States
@@ -256,6 +257,7 @@ export default function AdminDashboard() {
     setEditDueAmount(due.amount.toString());
     setEditDueDay(due.dueDay.toString());
     setEditDueAssignedTo(due.assignedTo || 'Family');
+    setEditDueStatus(due.status || 'Unpaid');
     setEditDueDialogOpen(true);
   };
 
@@ -275,7 +277,8 @@ export default function AdminDashboard() {
           title: editDueTitle,
           amount: parseFloat(editDueAmount),
           dueDay: parseInt(editDueDay),
-          assignedTo: editDueAssignedTo
+          assignedTo: editDueAssignedTo,
+          status: editDueStatus
         })
       });
       const data = await res.json();
@@ -1173,6 +1176,19 @@ export default function AdminDashboard() {
                 {members.map((m: any) => (
                   <MenuItem key={m.email} value={m.email}>{m.nickname} ({m.email})</MenuItem>
                 ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="edit-due-status-label">Payment Status</InputLabel>
+              <Select
+                labelId="edit-due-status-label"
+                label="Payment Status"
+                value={editDueStatus}
+                onChange={(e) => setEditDueStatus(e.target.value as string)}
+                disabled={editDueLoading}
+              >
+                <MenuItem value="Unpaid">Unpaid</MenuItem>
+                <MenuItem value="Paid">Paid</MenuItem>
               </Select>
             </FormControl>
           </Box>
