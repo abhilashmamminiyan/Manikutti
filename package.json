@@ -8,6 +8,9 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "start": "next start"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
