@@ -286,7 +286,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = () => signIn('google');
+  const login = () => {
+    refreshData();
+    router.replace('/personal');
+  };
   const logout = () => signOut({ callbackUrl: '/login' });
   const setTheme = (nextTheme: Theme) => setThemeState(nextTheme);
   const refreshData = () => setLastRefresh(Date.now());
@@ -323,7 +326,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  const showNav = isLoggedIn && protectedPaths.includes(pathname);
+  const showNav = false;
 
   return (
     <AppShellContext.Provider value={value}>

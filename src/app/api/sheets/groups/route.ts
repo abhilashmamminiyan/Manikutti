@@ -1,16 +1,28 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { google } from 'googleapis';
+import { getAuthUserEmail, parsePrivateKey } from '@/lib/authHelper';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const auth = new google.auth.OAuth2();
-    auth.setCredentials({ access_token: session.accessToken });
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = parsePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+
+    if (!clientEmail || !privateKey) {
+      return NextResponse.json({ error: 'Google Service Account credentials missing' }, { status: 500 });
+    }
+
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+      ]
+    });
+
     const sheets = google.sheets({ version: 'v4', auth });
     const drive = google.drive({ version: 'v3', auth });
 
@@ -38,9 +50,7 @@ export async function GET() {
 
     return NextResponse.json({ groups });
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    console.error('Error in groups GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

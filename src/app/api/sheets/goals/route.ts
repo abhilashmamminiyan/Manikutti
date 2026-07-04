@@ -1,21 +1,19 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Personal');
     if (!spreadsheetId) return NextResponse.json({ goals: [] });
 
     const rows = await service.getSheetData(spreadsheetId, 'Goals!A:E');
     const goals = rows.slice(1)
-      .filter(r => r[4] === session.user?.email)
+      .filter(r => r[4]?.toLowerCase() === email.toLowerCase())
       .map((row, index) => ({
         title: row[0],
         targetAmount: parseFloat(row[1]) || 0,
@@ -29,18 +27,17 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('Error in goals GET:', error);
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { title, targetAmount, currentAmount } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Personal');
     if (!spreadsheetId) return NextResponse.json({ goals: [] });
 
@@ -49,24 +46,24 @@ export async function POST(request: Request) {
       targetAmount,
       currentAmount || 0,
       'Active',
-      session.user?.email
+      email
     ]);
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in goals POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id, currentAmount } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Personal');
     if (!spreadsheetId) return NextResponse.json({ goals: [] });
     
@@ -75,6 +72,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error('Error in goals PATCH:', error);
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });
   }
 }

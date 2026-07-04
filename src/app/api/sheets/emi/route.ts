@@ -1,19 +1,17 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
     const familyCode = url.searchParams.get('familyCode');
     if (!familyCode) return NextResponse.json({ error: 'Family code required' }, { status: 400 });
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
@@ -39,18 +37,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ items });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in EMI GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { title, amount, dueDate, familyCode, tenure, monthlyPayment, startDate, type, owner } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
@@ -60,7 +58,7 @@ export async function POST(request: Request) {
       dueDate,
       'Unpaid',
       familyCode,
-      session.user?.email,
+      email,
       tenure || '',
       monthlyPayment || '',
       startDate || '',
@@ -72,22 +70,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in EMI POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id, status, paidMonths, dueDate } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
     
-    // Update status (col D), paidMonths (col J), and dueDate (col C)
     const updates = [
       { range: `EMI_Bills!D${id + 1}`, values: [[status]] },
       { range: `EMI_Bills!J${id + 1}`, values: [[paidMonths]] },
@@ -100,6 +97,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error('Error in EMI PATCH:', error);
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });
   }
 }

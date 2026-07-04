@@ -1,20 +1,18 @@
 import fs from 'fs';
 import path from 'path';
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const lockDir = path.join(process.cwd(), '.locks');
     if (!fs.existsSync(lockDir)) fs.mkdirSync(lockDir);
     
-    const lockFile = path.join(lockDir, `init_${session.user?.email?.replace(/[^a-zA-Z0-9]/g, '_')}.lock`);
+    const lockFile = path.join(lockDir, `init_${email.replace(/[^a-zA-Z0-9]/g, '_')}.lock`);
 
     // Check for existing lock
     if (fs.existsSync(lockFile)) {
@@ -29,7 +27,7 @@ export async function GET() {
     try {
       fs.writeFileSync(lockFile, Date.now().toString());
 
-      const service = new GoogleSheetsService(session);
+      const service = new GoogleSheetsService(email);
       const spreadsheetId = await service.findOrCreateSheet('Personal');
       
       return NextResponse.json({ success: !!spreadsheetId, spreadsheetId });

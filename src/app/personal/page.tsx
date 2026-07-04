@@ -1,12 +1,10 @@
-'use client';
-
-import PersonalDashboard from '@/screens/PersonalDashboard';
+import AdminDashboard from '@/screens/AdminDashboard';
 import ProtectedPage from '@/components/ProtectedPage';
 
 export default function PersonalPage() {
   return (
     <ProtectedPage>
-      <PersonalDashboard />
+      <AdminDashboard />
     </ProtectedPage>
   );
 }

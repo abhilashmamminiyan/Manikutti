@@ -1,18 +1,16 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
     const sheetName = url.searchParams.get('sheetName') || 'Personal_Expenses';
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
     const spreadsheetId = await service.findOrCreateSheet(type);
     if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
@@ -46,18 +44,17 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('Error in expense GET:', error);
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { sheetName, expense, familyCode } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
     const spreadsheetId = await service.findOrCreateSheet(type);
     if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
     if (sheetName === 'Family_Expenses') {
       // Admin Check
       const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
-      const userRole = members.slice(1).find(m => m[0] === familyCode && m[1] === session.user?.email)?.[2];
+      const userRole = members.slice(1).find(m => m[0] === familyCode && m[1]?.toLowerCase() === email.toLowerCase())?.[2];
       
       if (userRole !== 'Admin') {
         return NextResponse.json({ error: 'Only Admins can add family expenses' }, { status: 403 });
@@ -76,7 +73,7 @@ export async function POST(request: Request) {
         expense.amount,
         expense.category,
         expense.note || '',
-        session.user?.email || 'Unknown',
+        email,
         familyCode || ''
       ];
       await service.appendRow(spreadsheetId, 'Family_Expenses', rowData);
@@ -95,20 +92,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in expense POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id, sheetName, isPaid } = await request.json();
     if (id === undefined || !sheetName || isPaid === undefined) return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
     const spreadsheetId = await service.findOrCreateSheet(type);
     if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
@@ -121,7 +118,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in expense PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

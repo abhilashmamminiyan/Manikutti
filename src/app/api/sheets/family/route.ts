@@ -1,20 +1,18 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService, FAMILY_SHEET_PREFIX } from '@/lib/googleSheets';
 import { sendInvitationEmail } from '@/lib/email';
+import { getAuthUserEmail } from '@/lib/authHelper';
 import jwt from 'jsonwebtoken';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
     const code = url.searchParams.get('code');
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ family: null });
 
@@ -27,7 +25,7 @@ export async function GET(request: Request) {
     }
 
     // Find family by user email
-    const userFamily = rows.slice(1).find(r => r[1] === session.user?.email);
+    const userFamily = rows.slice(1).find(r => r[1]?.toLowerCase() === email.toLowerCase());
     if (!userFamily) return NextResponse.json({ family: null });
 
     const familyCode = userFamily[0];
@@ -43,95 +41,66 @@ export async function GET(request: Request) {
 
   } catch (error: unknown) {
     console.error('Error in family GET:', error);
-    // @ts-expect-error - checking for common API error properties
-    if (error?.status === 401 || error?.code === 401 || (error instanceof Error && error.message === 'UNAUTHORIZED_GOOGLE_ACCESS')) {
-      return NextResponse.json({ 
-        error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again.' 
-      }, { status: 401 });
-    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { action, code, email, name, token, targetEmail, nickname, monthlyIncome } = body;
-    const service = new GoogleSheetsService(session);
+    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome } = body;
+    const service = new GoogleSheetsService(email);
 
     if (action === 'create') {
       const spreadsheetId = await service.findOrCreateSheet('Family', name);
-      if (!spreadsheetId) return NextResponse.json({ error: 'Failed to create family spreadsheet' }, { status: 500 });
+      if (!spreadsheetId) return NextResponse.json({ error: 'Failed to find family spreadsheet' }, { status: 500 });
       
       const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      await service.appendRow(spreadsheetId, 'Family_Members', [newCode, session.user?.email, 'Admin', new Date().toISOString()]);
+      await service.appendRow(spreadsheetId, 'Family_Members', [newCode, email, 'Admin', new Date().toISOString()]);
       return NextResponse.json({ success: true, familyCode: newCode });
     }
 
     if (action === 'join' && code) {
-      const allSheets = await service.findAllFamilySheets();
-      let targetSpreadsheetId = null;
-      const searchedCount = allSheets.length;
+      const spreadsheetId = await service.findOrCreateSheet('Family');
+      if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
 
-      for (const sheet of allSheets) {
-        if (!sheet.id) continue;
-        try {
-          // Range A:B to get both code and email in case we need to check both
-          const rows = await service.getSheetData(sheet.id, 'Family_Members!A:B');
-          if (rows.some(r => r[0] === code)) {
-            targetSpreadsheetId = sheet.id;
-            break;
-          }
-        } catch (e) {
-          console.error(`Error checking sheet ${sheet.id}:`, e);
-          continue;
-        }
+      const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:B');
+      const codeExists = rows.some(r => r[0] === code);
+
+      if (!codeExists) {
+        return NextResponse.json({ error: 'Family code not found in the Admin Spreadsheet' }, { status: 400 });
       }
 
-      if (!targetSpreadsheetId) {
-        const errorMsg = searchedCount === 0 
-          ? 'No shared family spreadsheets found. Please ensure the Admin has invited you and you have access to the file.' 
-          : `Family code not found among ${searchedCount} discovered spreadsheets.`;
-        return NextResponse.json({ error: errorMsg }, { status: 400 });
-      }
-
-      await service.appendRow(targetSpreadsheetId, 'Family_Members', [code, session.user?.email, 'Member', new Date().toISOString()]);
+      await service.appendRow(spreadsheetId, 'Family_Members', [code, email, 'Member', new Date().toISOString()]);
       return NextResponse.json({ success: true });
     }
 
     if (action === 'invite') {
-      if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+      if (!targetInviteEmail) return NextResponse.json({ error: 'Email required' }, { status: 400 });
       
       const spreadsheetId = await service.findOrCreateSheet('Family');
       if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
       
       // Get the family code
       const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
-      const adminRow = rows.slice(1).find(r => r[1] === session.user?.email && r[2] === 'Admin');
+      const adminRow = rows.slice(1).find(r => r[1]?.toLowerCase() === email.toLowerCase() && r[2] === 'Admin');
       if (!adminRow) return NextResponse.json({ error: 'Only admins can invite members' }, { status: 403 });
       
       const familyCode = adminRow[0];
       
-      // Fetch the actual spreadsheet name for the email
-      // @ts-expect-error - accessing private auth for debugging/fix
-      const spreadsheet = await service.drive.files.get({
-        auth: service.auth,
-        fileId: spreadsheetId,
-        fields: 'name'
-      });
-      const spreadsheetName = spreadsheet.data.name || 'Family';
-      const displayName = spreadsheetName.replace(FAMILY_SHEET_PREFIX, '') || 'Family';
+      // Retrieve spreadsheet name (mock or fallback since we don't query drive file names on client token)
+      const displayName = name || 'Family';
 
       // Share the spreadsheet first
-      const shared = await service.shareSheet(spreadsheetId, email);
-      if (!shared) return NextResponse.json({ error: 'Failed to share spreadsheet' }, { status: 500 });
+      const shared = await service.shareSheet(spreadsheetId, targetInviteEmail);
+      if (!shared) return NextResponse.json({ error: 'Failed to share spreadsheet with invitee' }, { status: 500 });
 
       // Generate token
       const token = jwt.sign(
-        { spreadsheetId, familyCode, email },
+        { spreadsheetId, familyCode, email: targetInviteEmail },
         process.env.NEXTAUTH_SECRET || 'secret',
         { expiresIn: '7d' }
       );
@@ -139,7 +108,7 @@ export async function POST(request: Request) {
       // Store invitation
       await service.appendRow(spreadsheetId, 'Invitations', [
         token,
-        email,
+        targetInviteEmail,
         familyCode,
         spreadsheetId,
         'Pending',
@@ -147,8 +116,8 @@ export async function POST(request: Request) {
       ]);
 
       // Send email
-      const inviteLink = `${process.env.NEXTAUTH_URL}/join-family?token=${token}`;
-      const emailResult = await sendInvitationEmail(email, displayName, inviteLink);
+      const inviteLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/join-family?token=${token}`;
+      const emailResult = await sendInvitationEmail(targetInviteEmail, displayName, inviteLink);
       
       if (!emailResult.success) {
         return NextResponse.json({ error: 'Invitation sent but email failed. Please share the link manually: ' + inviteLink }, { status: 200 });
@@ -162,12 +131,17 @@ export async function POST(request: Request) {
 
       try {
         const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret') as any;
-        const { spreadsheetId, familyCode, email } = decoded;
+        const { spreadsheetId: inviteSpreadsheetId, familyCode, email: inviteeEmail } = decoded;
 
-        if (email !== session.user?.email) {
+        if (inviteeEmail?.toLowerCase() !== email.toLowerCase()) {
           return NextResponse.json({ error: 'This invitation was sent to another email address.' }, { status: 403 });
         }
 
+        const spreadsheetId = await service.findOrCreateSheet('Family');
+        if (!spreadsheetId) {
+          return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
+        }
+        
         // Check if invitation exists and is pending
         const invitations = await service.getSheetData(spreadsheetId, 'Invitations!A:E');
         const inviteIndex = invitations.findIndex(r => r[0] === token && r[4] === 'Pending');
@@ -177,7 +151,7 @@ export async function POST(request: Request) {
         }
 
         // Add to membership
-        await service.appendRow(spreadsheetId, 'Family_Members', [familyCode, session.user?.email, 'Member', new Date().toISOString()]);
+        await service.appendRow(spreadsheetId, 'Family_Members', [familyCode, email, 'Member', new Date().toISOString()]);
 
         // Update invitation status
         invitations[inviteIndex][4] = 'Accepted';
@@ -195,7 +169,7 @@ export async function POST(request: Request) {
       if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
 
       const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
-      const rowIndex = rows.findIndex(r => r[1] === targetEmail);
+      const rowIndex = rows.findIndex(r => r[1]?.toLowerCase() === targetEmail?.toLowerCase());
       if (rowIndex === -1) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
 
       // Ensure row has enough columns
@@ -212,13 +186,6 @@ export async function POST(request: Request) {
 
   } catch (error: unknown) {
     console.error('Error in family POST:', error);
-    // @ts-expect-error - checking for common API error properties
-    const status = error?.status || error?.code || error?.response?.status;
-    if (status === 401 || status === '401' || (error instanceof Error && error.message === 'UNAUTHORIZED_GOOGLE_ACCESS')) {
-      return NextResponse.json({ 
-        error: 'Your Google session has expired or permissions are missing. Please sign out and sign in again to refresh your access.' 
-      }, { status: 401 });
-    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error', details: String(error) }, { status: 500 });
   }
 }

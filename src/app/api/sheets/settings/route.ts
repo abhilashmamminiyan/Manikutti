@@ -1,15 +1,13 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Personal');
     if (!spreadsheetId) return NextResponse.json({ categories: [] });
 
@@ -22,25 +20,22 @@ export async function GET() {
       incomeCategories: incomeCategories.length > 0 ? incomeCategories : ['Salary', 'Kadam', 'Investment', 'Other']
     });
   } catch (error: any) {
-    if (error.status === 401 || error.code === 401) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Error in settings GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { categories, incomeCategories } = await request.json();
     
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Personal');
     if (!spreadsheetId) return NextResponse.json({ categories: [] });
 
-    // Format for sheet update (A1:B100)
-    // We need to zip the two arrays or handle them separately. 
-    // Managing them in one call is better.
     const maxLen = Math.max(categories?.length || 0, incomeCategories?.length || 0);
     const values: any[][] = [['Categories', 'Income Categories']];
     

@@ -1,19 +1,17 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { NextResponse } from 'next/server';
-import { ManikuttiSession } from '@/lib/types';
 import { GoogleSheetsService } from '@/lib/googleSheets';
+import { getAuthUserEmail } from '@/lib/authHelper';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
     const familyCode = url.searchParams.get('familyCode');
     if (!familyCode) return NextResponse.json({ error: 'Family code required' }, { status: 400 });
 
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ loans: [] });
 
@@ -67,11 +65,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions) as ManikuttiSession;
-    if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const email = await getAuthUserEmail(request);
+    if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { action, loanName, amount, monthlyEMI, assignedTo, familyCode, expense } = await request.json();
-    const service = new GoogleSheetsService(session);
+    const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
 
@@ -82,7 +80,7 @@ export async function POST(request: Request) {
         monthlyEMI,
         assignedTo,
         familyCode,
-        session.user?.email,
+        email,
         'Active'
       ]);
 
@@ -92,7 +90,7 @@ export async function POST(request: Request) {
         1,
         'Unpaid',
         familyCode,
-        session.user?.email,
+        email,
         '',
         '',
         loanName
@@ -108,7 +106,7 @@ export async function POST(request: Request) {
         expense.category || 'Loan Spend',
         expense.note || '',
         loanName,
-        session.user?.email,
+        email,
         familyCode
       ]);
       return NextResponse.json({ success: true });

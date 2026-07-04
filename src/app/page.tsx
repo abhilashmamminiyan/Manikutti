@@ -1,12 +1,12 @@
 'use client';
 
 import LoginScreen from '@/screens/LoginScreen';
-import PersonalDashboard from '@/screens/PersonalDashboard';
+import AdminDashboard from '@/screens/AdminDashboard';
 import { useAppShell } from '@/components/AppShell';
 
 export default function HomePage() {
   const { isLoggedIn, login } = useAppShell();
 
-  return isLoggedIn ? <PersonalDashboard /> : <LoginScreen onLogin={login} />;
+  return isLoggedIn ? <AdminDashboard /> : <LoginScreen onLogin={login} />;
 }
 

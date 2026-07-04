@@ -1,35 +1,62 @@
 import { AuthOptions } from "next-auth"
-import GoogleProvider from "next-auth/providers/google"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { verifyOTPToken } from "./authHelper"
 
 export const authOptions: AuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      authorization: {
-        params: {
-          scope:
-            "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets",
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code"
-        },
+    CredentialsProvider({
+      name: "OTP",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        otp: { label: "OTP", type: "text" },
+        token: { label: "Token", type: "text" }
       },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.otp || !credentials?.token) {
+          throw new Error("Missing credentials");
+        }
+
+        const email = credentials.email.toLowerCase().trim();
+        
+        // Allowed Admin check
+        const adminEmailsStr = process.env.ADMIN_EMAILS || "manikutti.app@gmail.com";
+        const adminEmails = adminEmailsStr.split(",").map(e => e.trim().toLowerCase());
+        
+        if (!adminEmails.includes(email)) {
+          throw new Error("Unauthorized admin email");
+        }
+
+        // Verify the OTP using the stateless token
+        const isValid = verifyOTPToken(email, credentials.otp, credentials.token);
+        if (!isValid) {
+          throw new Error("Invalid or expired OTP");
+        }
+
+        return {
+          id: email,
+          email: email,
+          name: "Admin"
+        };
+      }
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
-    async jwt({ token, account }) {
-      if (account) {
-        token.accessToken = account.access_token;
-        console.log(`[Auth] New token for ${token.email}. Access Token granted. Scopes: ${account.scope}`);
+    async jwt({ token, user }) {
+      if (user) {
+        token.email = user.email;
       }
       return token;
     },
     async session({ session, token }) {
-      // @ts-expect-error - accessToken is added to session via callbacks
-      session.accessToken = token.accessToken as string;
+      if (session.user) {
+        session.user.email = token.email;
+      }
       return session;
     },
   },
 }
+

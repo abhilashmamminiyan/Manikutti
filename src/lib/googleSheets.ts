@@ -1,31 +1,35 @@
 import { google, sheets_v4, drive_v3 } from 'googleapis';
 import { ManikuttiSession } from './types';
+import { parsePrivateKey } from './authHelper';
 
 export const PERSONAL_SHEET_NAME = 'Manikutti_v2_Personal';
 export const FAMILY_SHEET_PREFIX = 'Manikutti_v2_Family_';
 
 export class GoogleSheetsService {
-  private session: ManikuttiSession;
+  private userEmail?: string;
   private sheets: sheets_v4.Sheets;
   private drive: drive_v3.Drive;
-  private auth: InstanceType<typeof google.auth.OAuth2>;
+  private auth: any;
 
-  constructor(session: ManikuttiSession) {
-    if (!session?.accessToken) {
-      console.error('[GoogleSheetsService] Missing access token in session');
-      throw new Error('Google access token not found in session.');
-    }
-    this.session = session;
-    console.log(`[GoogleSheetsService] Initializing with access token (length: ${session.accessToken.length}, prefix: ${session.accessToken.substring(0, 5)})`);
+  constructor(userEmail?: string) {
+    this.userEmail = userEmail;
     
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = parsePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
 
-    if (!clientId) console.warn('[GoogleSheetsService] GOOGLE_CLIENT_ID is missing');
-    if (!clientSecret) console.warn('[GoogleSheetsService] GOOGLE_CLIENT_SECRET is missing');
+    if (!clientEmail || !privateKey) {
+      console.error('[GoogleSheetsService] Service Account credentials are not configured in environment variables.');
+      throw new Error('Google Service Account credentials missing.');
+    }
 
-    this.auth = new google.auth.OAuth2(clientId, clientSecret);
-    this.auth.setCredentials({ access_token: session.accessToken });
+    this.auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+      ]
+    });
 
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
     this.drive = google.drive({ version: 'v3', auth: this.auth });
@@ -33,30 +37,18 @@ export class GoogleSheetsService {
 
   public async findAllFamilySheets(): Promise<{id: string, name: string}[]> {
     try {
-      console.log('[GoogleSheetsService] findAllFamilySheets: fetching list');
-      const response = await this.drive.files.list({
-        auth: this.auth,
-        q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
-        fields: 'files(id, name, owners)',
-        pageSize: 50,
-      });
+      const adminSheetId = process.env.ADMIN_SPREADSHEET_ID;
+      if (!adminSheetId) return [];
       
-      const allFiles = response.data.files || [];
-      console.log(`[GoogleSheetsService] findAllFamilySheets: Total spreadsheets found: ${allFiles.length}`);
-      allFiles.forEach(f => console.log(`[GoogleSheetsService] Found file: "${f.name}" (ID: ${f.id})`));
-
-      const filtered = allFiles
-        .filter(f => f.name && (f.name.includes(FAMILY_SHEET_PREFIX) || (f.name.includes('Family') && f.name.includes('Manikutti'))))
-        .map(f => ({ id: f.id!, name: f.name! }));
-
-      return filtered;
-    } catch (error: unknown) {
-      console.error('[GoogleSheetsService] Error in findAllFamilySheets:', error instanceof Error ? error.message : String(error));
-      // @ts-expect-error - checking for common API error properties
-      if (error?.code === 401 || error?.status === 401) {
-        throw new Error('UNAUTHORIZED_GOOGLE_ACCESS');
-      }
-      throw error;
+      const response = await this.drive.files.get({
+        auth: this.auth,
+        fileId: adminSheetId,
+        fields: 'id, name',
+      });
+      return [{ id: response.data.id!, name: response.data.name! }];
+    } catch (error) {
+      console.error('[GoogleSheetsService] Error in findAllFamilySheets:', error);
+      return [];
     }
   }
 
@@ -65,7 +57,6 @@ export class GoogleSheetsService {
       const rows = await this.getSheetData(spreadsheetId, 'Family_Members!B:B');
       const normalizedEmail = email.trim().toLowerCase();
       const isMember = rows.slice(1).some(r => r[0]?.toString().trim().toLowerCase() === normalizedEmail);
-      console.log(`[GoogleSheetsService] Checking membership for ${normalizedEmail} in ${spreadsheetId}: ${isMember}`);
       return isMember;
     } catch (error) {
       console.error(`[GoogleSheetsService] Membership check failed for ${spreadsheetId}:`, error);
@@ -74,90 +65,51 @@ export class GoogleSheetsService {
   }
 
   public async findOrCreateSheet(type: 'Personal' | 'Family', familyName?: string): Promise<string | null> {
-      const userEmail = this.session.user?.email;
-      const targetName = type === 'Personal' ? PERSONAL_SHEET_NAME : `${FAMILY_SHEET_PREFIX}${familyName || 'Shared'}`;
-      console.log(`[GoogleSheetsService] findOrCreateSheet type=${type} familyName=${familyName} userEmail=${userEmail}`);
-      
       if (type === 'Family') {
-        for (let retry = 0; retry < 3; retry++) {
-          const familyFiles = await this.findAllFamilySheets();
-          console.log(`[GoogleSheetsService] Found ${familyFiles.length} family-prefixed files (Retry ${retry})`);
-          if (familyFiles.length > 0 && userEmail) {
-            for (const file of familyFiles) {
-              console.log(`[GoogleSheetsService] Checking family file: ${file.name} (${file.id})`);
-              if (await this.checkMembership(file.id, userEmail)) {
-                await this.ensureSheetsExist(file.id, 'Family');
-                return file.id;
-              }
-            }
-          }
-          if (familyName) break; 
-          await new Promise(resolve => setTimeout(resolve, 1000 + (retry * 500)));
+        const familySheetId = process.env.FAMILY_SPREADSHEET_ID;
+        if (!familySheetId) {
+          console.error('[GoogleSheetsService] FAMILY_SPREADSHEET_ID is missing in environment variables');
+          throw new Error('FAMILY_SPREADSHEET_ID not configured.');
         }
-        console.log(`[GoogleSheetsService] No family sheet found for ${userEmail}`);
-        if (!familyName) return null;
-      } else {
-        const query = `mimeType='application/vnd.google-apps.spreadsheet' and name='${targetName}' and trashed=false`;
-        let response = await this.drive.files.list({
-          auth: this.auth,
-          q: query,
-          fields: 'files(id, name, owners)',
-        });
-        let files = response.data.files || [];
-
-        if (files.length === 0) {
-          for (let i = 0; i < 2; i++) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            response = await this.drive.files.list({ 
-              auth: this.auth,
-              q: query, 
-              fields: 'files(id, name, owners)' 
-            });
-            files = response.data.files || [];
-            if (files.length > 0) break;
-          }
-        }
-
-        if (files.length > 0) {
-          const ownedFile = files.find(f => f.owners?.some(o => o.emailAddress === userEmail)) || files[0];
-          await this.ensureSheetsExist(ownedFile.id!, 'Personal');
-          return ownedFile.id!;
-        }
+        await this.ensureSheetsExist(familySheetId, 'Family');
+        return familySheetId;
       }
 
-      const delay = type === 'Personal' ? Math.floor(Math.random() * 2000) : Math.floor(Math.random() * 500);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      const secondResponse = await this.drive.files.list({
-        auth: this.auth,
-        q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${targetName}' and trashed=false`,
-        fields: 'files(id, owners, createdTime)',
-        orderBy: 'createdTime desc'
-      });
-      const secondFiles = secondResponse.data.files || [];
-      
-      if (secondFiles.length > 0) {
-        if (type === 'Personal') {
-          const ownedFile = secondFiles.find(f => f.owners?.some(o => o.emailAddress === userEmail)) || secondFiles[0];
-          await this.ensureSheetsExist(ownedFile.id!, 'Personal');
-          return ownedFile.id!;
-        } else {
-          await this.ensureSheetsExist(secondFiles[0].id!, 'Family');
-          return secondFiles[0].id!;
-        }
+      // Personal Sheet
+      if (!this.userEmail) {
+        throw new Error('User email is required for Personal spreadsheet operations.');
       }
 
-      if (type === 'Family' && !familyName) return null;
+      const adminSheetId = process.env.ADMIN_SPREADSHEET_ID;
+      if (!adminSheetId) {
+        console.error('[GoogleSheetsService] ADMIN_SPREADSHEET_ID is missing in environment variables');
+        throw new Error('ADMIN_SPREADSHEET_ID not configured.');
+      }
 
-      const sheetsConfig = type === 'Personal' ? [
+      // Ensure that 'User_Sheets' exists in the Admin Spreadsheet
+      await this.ensureSheetsExist(adminSheetId, 'Admin');
+
+      // Look up userEmail in User_Sheets mapping
+      const userSheetsRows = await this.getSheetData(adminSheetId, 'User_Sheets!A:B');
+      const cleanEmail = this.userEmail.trim().toLowerCase();
+      
+      const userMappingRow = userSheetsRows.slice(1).find(r => r[0]?.toString().trim().toLowerCase() === cleanEmail);
+
+      if (userMappingRow && userMappingRow[1]) {
+        const spreadsheetId = userMappingRow[1].toString();
+        await this.ensureSheetsExist(spreadsheetId, 'Personal');
+        return spreadsheetId;
+      }
+
+      // If not found in the Admin index, create a new Personal spreadsheet
+      const targetName = `Manikutti_Personal_${this.userEmail}`;
+      console.log(`[GoogleSheetsService] Mapped sheet not found. Creating new Personal sheet type=Personal userEmail=${this.userEmail}`);
+      
+      // Create new Personal sheet under service account
+      const sheetsConfig = [
         { properties: { title: 'Personal_Expenses' } },
         { properties: { title: 'Settings' } },
         { properties: { title: 'Goals' } },
-      ] : [
-        { properties: { title: 'Family_Expenses' } },
-        { properties: { title: 'Family_Members' } },
-        { properties: { title: 'Monthly_Expenses' } },
-        { properties: { title: 'Invitations' } },
       ];
 
       const spreadsheet = await this.sheets.spreadsheets.create({
@@ -169,20 +121,31 @@ export class GoogleSheetsService {
       });
 
       const spreadsheetId = spreadsheet.data.spreadsheetId || null;
-      if (spreadsheetId) await this.initializeSheets(spreadsheetId, type);
+      if (spreadsheetId) {
+        await this.initializeSheets(spreadsheetId, 'Personal');
+        await this.shareSheet(spreadsheetId, this.userEmail);
+
+        // Record the new mapping in the Admin spreadsheet index
+        await this.appendRow(adminSheetId, 'User_Sheets', [this.userEmail, spreadsheetId]);
+      }
       return spreadsheetId;
   }
 
-  private async ensureSheetsExist(spreadsheetId: string, type: 'Personal' | 'Family') {
+  public async ensureSheetsExist(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin') {
     const spreadsheet = await this.sheets.spreadsheets.get({ 
       auth: this.auth,
       spreadsheetId 
     });
     const existingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
     
-    const requiredSheets = type === 'Personal' 
-      ? ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History']
-      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments'];
+    let requiredSheets: string[] = [];
+    if (type === 'Personal') {
+      requiredSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
+    } else if (type === 'Family') {
+      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments'];
+    } else if (type === 'Admin') {
+      requiredSheets = ['User_Sheets'];
+    }
 
     const missingSheets = requiredSheets.filter(s => !existingSheets.includes(s));
 
@@ -201,7 +164,7 @@ export class GoogleSheetsService {
     }
   }
 
-  private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family', specificSheets?: string[]) {
+  private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin', specificSheets?: string[]) {
     const headers: Record<string, string[][]> = {
       'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
@@ -214,11 +177,19 @@ export class GoogleSheetsService {
       'Loans': [['Loan Name', 'Principal Amount', 'Monthly EMI', 'Assigned To', 'Family Code', 'Admin Email', 'Status']],
       'Loan_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Loan Name', 'Added By', 'Family Code']],
       'Loan_Repayments': [['Date', 'Amount', 'Loan Name', 'Paid By', 'Family Code']],
+      'User_Sheets': [['Email', 'Spreadsheet ID']],
     };
 
-    const sheetsToInit = specificSheets || (type === 'Personal' 
-      ? ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History']
-      : ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments']);
+    let defaultSheets: string[] = [];
+    if (type === 'Personal') {
+      defaultSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
+    } else if (type === 'Family') {
+      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments'];
+    } else if (type === 'Admin') {
+      defaultSheets = ['User_Sheets'];
+    }
+
+    const sheetsToInit = specificSheets || defaultSheets;
 
     for (const title of sheetsToInit) {
       if (headers[title]) {

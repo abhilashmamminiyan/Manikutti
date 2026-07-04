@@ -1,10 +1,10 @@
 import ProtectedPage from '@/components/ProtectedPage';
-import FamilyDashboard from '@/screens/FamilyDashboard';
+import AdminDashboard from '@/screens/AdminDashboard';
 
 export default function FamilyPage() {
   return (
     <ProtectedPage>
-      <FamilyDashboard />
+      <AdminDashboard />
     </ProtectedPage>
   );
 }
