@@ -83,10 +83,9 @@ export async function POST(request: Request) {
       }
 
       const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
-      const userRole = userRow?.[2];
       
-      if (userRole !== 'Admin') {
-        return NextResponse.json({ error: 'Only Admins can add family expenses' }, { status: 403 });
+      if (!userRow) {
+        return NextResponse.json({ error: 'Forbidden: You are not a member of this family group' }, { status: 403 });
       }
 
       const rowData = [

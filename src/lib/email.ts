@@ -11,6 +11,7 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendInvitationEmail(to: string, familyName: string, inviteLink: string) {
+  const token = inviteLink.split('token=')[1] || '';
   const mailOptions = {
     from: `"Manikutti Finance" <${process.env.SMTP_USER}>`,
     to,
@@ -19,8 +20,16 @@ export async function sendInvitationEmail(to: string, familyName: string, invite
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <h2 style="color: #4F46E5;">Welcome to Manikutti!</h2>
         <p>You have been invited to join the <strong>${familyName}</strong> family group to track collective prosperity.</p>
+        
+        <!-- Mobile Invite Token copy box -->
+        <div style="background-color: #f8fafc; border: 1px dashed #4F46E5; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; font-weight: bold;">Mobile App Invitation Code:</p>
+          <code style="font-family: monospace; font-size: 12px; font-weight: bold; color: #4F46E5; word-break: break-all; display: block; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0;">${token}</code>
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8;">Copy this code and paste it into your mobile app when prompted.</p>
+        </div>
+
         <div style="margin: 30px 0; text-align: center;">
-          <a href="${inviteLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Join Family Sanctuary</a>
+          <a href="${inviteLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Join Family Sanctuary (Web)</a>
         </div>
         <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link into your browser:</p>
         <p style="font-size: 12px; color: #666; word-break: break-all;">${inviteLink}</p>
