@@ -61,8 +61,29 @@ export async function POST(request: Request) {
 
     if (sheetName === 'Family_Expenses') {
       // Admin Check
-      const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
-      const userRole = members.slice(1).find(m => m[0] === familyCode && m[1]?.toLowerCase() === email.toLowerCase())?.[2];
+      let members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+      const isAdminEmail = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()).includes(email.toLowerCase());
+
+      if (members.length <= 1 && isAdminEmail) {
+        const defaultFamilyCode = `FAM_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const defaultNickname = email.split('@')[0];
+        const joinedDate = new Date().toISOString().split('T')[0];
+        
+        await service.appendRow(spreadsheetId, 'Family_Members', [
+          defaultFamilyCode,
+          email,
+          'Admin',
+          joinedDate,
+          defaultNickname,
+          '0'
+        ]);
+        
+        // Re-fetch members
+        members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+      }
+
+      const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+      const userRole = userRow?.[2];
       
       if (userRole !== 'Admin') {
         return NextResponse.json({ error: 'Only Admins can add family expenses' }, { status: 403 });
