@@ -67,6 +67,21 @@ export default function AdminDashboard() {
   const [invitePersonalSheetId, setInvitePersonalSheetId] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  // New Monthly Expense & Loan Dialog States
+  const [addDueDialogOpen, setAddDueDialogOpen] = useState(false);
+  const [dueTitle, setDueTitle] = useState('');
+  const [dueAmount, setDueAmount] = useState('');
+  const [dueDay, setDueDay] = useState('1');
+  const [dueAssignedTo, setDueAssignedTo] = useState('');
+  const [addDueLoading, setAddDueLoading] = useState(false);
+
+  const [addLoanDialogOpen, setAddLoanDialogOpen] = useState(false);
+  const [loanName, setLoanName] = useState('');
+  const [loanAmount, setLoanAmount] = useState('');
+  const [loanEMI, setLoanEMI] = useState('');
+  const [loanAssignedTo, setLoanAssignedTo] = useState('');
+  const [addLoanLoading, setAddLoanLoading] = useState(false);
+
   useEffect(() => {
     fetchStats();
   }, []);
@@ -121,6 +136,75 @@ export default function AdminDashboard() {
       alert(e.message || 'Failed to send invite');
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleCreateDue = async () => {
+    if (!dueTitle || !dueAmount || !dueDay) {
+      alert('Please fill all required fields.');
+      return;
+    }
+    setAddDueLoading(true);
+    try {
+      const res = await fetch('/api/sheets/monthly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: dueTitle,
+          amount: parseFloat(dueAmount),
+          dueDay: parseInt(dueDay),
+          familyCode: statsData?.familyCode,
+          assignedTo: dueAssignedTo || 'Family'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add monthly dues');
+      alert('Monthly dues added successfully!');
+      setAddDueDialogOpen(false);
+      setDueTitle('');
+      setDueAmount('');
+      setDueDay('1');
+      setDueAssignedTo('');
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to add monthly dues');
+    } finally {
+      setAddDueLoading(false);
+    }
+  };
+
+  const handleCreateLoan = async () => {
+    if (!loanName || !loanAmount || !loanEMI || !loanAssignedTo) {
+      alert('Please fill all required fields.');
+      return;
+    }
+    setAddLoanLoading(true);
+    try {
+      const res = await fetch('/api/sheets/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addLoan',
+          loanName,
+          amount: parseFloat(loanAmount),
+          monthlyEMI: parseFloat(loanEMI),
+          assignedTo: loanAssignedTo,
+          familyCode: statsData?.familyCode
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add loan');
+      alert('Loan added successfully!');
+      setAddLoanDialogOpen(false);
+      setLoanName('');
+      setLoanAmount('');
+      setLoanEMI('');
+      setLoanAssignedTo('');
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to add loan');
+    } finally {
+      setAddLoanLoading(false);
     }
   };
 
@@ -496,7 +580,17 @@ export default function AdminDashboard() {
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3, borderRadius: 4 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>Monthly Utilities & Dues</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Monthly Utilities & Dues</Typography>
+                    <Button 
+                      variant="contained" 
+                      size="small" 
+                      onClick={() => setAddDueDialogOpen(true)}
+                      sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' }, textTransform: 'none' }}
+                    >
+                      Add Monthly Dues
+                    </Button>
+                  </Box>
                   <TableContainer>
                     <Table>
                       <TableHead>
@@ -536,7 +630,17 @@ export default function AdminDashboard() {
 
               <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3, borderRadius: 4 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>Active EMIs & Loans Ledger</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Active EMIs & Loans Ledger</Typography>
+                    <Button 
+                      variant="contained" 
+                      size="small" 
+                      onClick={() => setAddLoanDialogOpen(true)}
+                      sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' }, textTransform: 'none' }}
+                    >
+                      Add Loan & EMI
+                    </Button>
+                  </Box>
                   <TableContainer>
                     <Table>
                       <TableHead>
@@ -577,6 +681,126 @@ export default function AdminDashboard() {
           </Box>
         )}
       </Box>
+
+      {/* Add Monthly Due Dialog */}
+      <Dialog open={addDueDialogOpen} onClose={() => setAddDueDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Add Monthly Dues</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField 
+              label="Dues / Bill Title" 
+              fullWidth 
+              value={dueTitle} 
+              onChange={(e) => setDueTitle(e.target.value)}
+              disabled={addDueLoading}
+              placeholder="e.g. Home Rent, Internet Bill"
+            />
+            <TextField 
+              label="Monthly Amount" 
+              type="number" 
+              fullWidth 
+              value={dueAmount} 
+              onChange={(e) => setDueAmount(e.target.value)}
+              disabled={addDueLoading}
+              placeholder="₹"
+            />
+            <TextField 
+              label="Due Day (1-31)" 
+              type="number" 
+              fullWidth 
+              value={dueDay} 
+              onChange={(e) => setDueDay(e.target.value)}
+              disabled={addDueLoading}
+              inputProps={{ min: 1, max: 31 }}
+            />
+            <TextField
+              select
+              label="Assign to Member"
+              fullWidth
+              value={dueAssignedTo}
+              onChange={(e) => setDueAssignedTo(e.target.value)}
+              disabled={addDueLoading}
+              SelectProps={{ native: true }}
+            >
+              <option value="Family">Family-wide (Shared)</option>
+              {members.map((m: any) => (
+                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
+              ))}
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setAddDueDialogOpen(false)} disabled={addDueLoading}>Cancel</Button>
+          <Button 
+            onClick={handleCreateDue} 
+            variant="contained" 
+            disabled={addDueLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {addDueLoading ? <CircularProgress size={20} color="inherit" /> : 'Create Commitment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Loan Dialog */}
+      <Dialog open={addLoanDialogOpen} onClose={() => setAddLoanDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Add Loan & EMI</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField 
+              label="Loan Name" 
+              fullWidth 
+              value={loanName} 
+              onChange={(e) => setLoanName(e.target.value)}
+              disabled={addLoanLoading}
+              placeholder="e.g. Home Loan, Bajaj Personal Loan"
+            />
+            <TextField 
+              label="Principal Amount" 
+              type="number" 
+              fullWidth 
+              value={loanAmount} 
+              onChange={(e) => setLoanAmount(e.target.value)}
+              disabled={addLoanLoading}
+              placeholder="₹"
+            />
+            <TextField 
+              label="Monthly EMI" 
+              type="number" 
+              fullWidth 
+              value={loanEMI} 
+              onChange={(e) => setLoanEMI(e.target.value)}
+              disabled={addLoanLoading}
+              placeholder="₹"
+            />
+            <TextField
+              select
+              label="Assign to Member"
+              fullWidth
+              value={loanAssignedTo}
+              onChange={(e) => setLoanAssignedTo(e.target.value)}
+              disabled={addLoanLoading}
+              SelectProps={{ native: true }}
+            >
+              <option value="">Select Member</option>
+              {members.map((m: any) => (
+                <option key={m.email} value={m.email}>{m.nickname} ({m.email})</option>
+              ))}
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setAddLoanDialogOpen(false)} disabled={addLoanLoading}>Cancel</Button>
+          <Button 
+            onClick={handleCreateLoan} 
+            variant="contained" 
+            disabled={addLoanLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {addLoanLoading ? <CircularProgress size={20} color="inherit" /> : 'Create Loan'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} maxWidth="xs" fullWidth>

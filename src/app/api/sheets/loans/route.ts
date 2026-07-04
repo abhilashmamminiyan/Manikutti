@@ -93,7 +93,8 @@ export async function POST(request: Request) {
         email,
         '',
         '',
-        loanName
+        loanName,
+        assignedTo
       ]);
 
       return NextResponse.json({ success: true });
