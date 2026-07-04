@@ -74,7 +74,7 @@ export default function AdminDashboard() {
   const [dueTitle, setDueTitle] = useState('');
   const [dueAmount, setDueAmount] = useState('');
   const [dueDay, setDueDay] = useState('1');
-  const [dueAssignedTo, setDueAssignedTo] = useState('');
+  const [dueAssignedTo, setDueAssignedTo] = useState('Family');
   const [addDueLoading, setAddDueLoading] = useState(false);
 
   const [addLoanDialogOpen, setAddLoanDialogOpen] = useState(false);
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
       setDueTitle('');
       setDueAmount('');
       setDueDay('1');
-      setDueAssignedTo('');
+      setDueAssignedTo('Family');
       fetchStats();
     } catch (e: any) {
       alert(e.message || 'Failed to add monthly dues');

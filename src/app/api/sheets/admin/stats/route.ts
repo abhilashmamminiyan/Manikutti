@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     // 3. Fetch all other sheets concurrently
     const [expenseRows, monthlyRows, loanRows, userSheetsRows] = await Promise.all([
       service.getSheetData(familySheetId, 'Family_Expenses!A:F'),
-      service.getSheetData(familySheetId, 'Monthly_Expenses!A:I'),
+      service.getSheetData(familySheetId, 'Monthly_Expenses!A:J'),
       service.getSheetData(familySheetId, 'Loans!A:G'),
       service.getSheetData(adminSheetId, 'User_Sheets!A:B')
     ]);
