@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { User, LogOut, ShieldCheck, Mail, Calendar, Settings } from 'lucide-react';
 import CategorySection from '@/components/CategorySection';
+import packageJson from '../../package.json';
 
 import Header from '@/components/layout/Header';
 
@@ -61,6 +62,10 @@ export default function ProfileScreen() {
            <LogOut size={20} />
            <span className="text-[10px] uppercase tracking-widest">Sign Out</span>
         </button>
+      </div>
+
+      <div className="mt-8 text-center">
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">App Version: {packageJson.version}</p>
       </div>
     </div>
   );
