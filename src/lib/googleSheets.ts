@@ -142,7 +142,7 @@ export class GoogleSheetsService {
     if (type === 'Personal') {
       requiredSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
     } else if (type === 'Family') {
-      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications'];
+      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
     } else if (type === 'Admin') {
       requiredSheets = ['User_Sheets'];
     }
@@ -179,13 +179,14 @@ export class GoogleSheetsService {
       'Loan_Repayments': [['Date', 'Amount', 'Loan Name', 'Paid By', 'Family Code']],
       'User_Sheets': [['Email', 'Spreadsheet ID']],
       'Notifications': [['Date', 'Title', 'Message', 'Family Code', 'Type', 'Created By']],
+      'HomeLoan_Ledger': [['Date', 'Total Payment', 'Principal', 'Interest', 'Balance', 'Family Code', 'Added By']],
     };
 
     let defaultSheets: string[] = [];
     if (type === 'Personal') {
       defaultSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
     } else if (type === 'Family') {
-      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications'];
+      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
     } else if (type === 'Admin') {
       defaultSheets = ['User_Sheets'];
     }
