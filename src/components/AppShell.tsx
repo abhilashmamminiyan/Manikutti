@@ -12,8 +12,6 @@ import type { ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import LoadingScreen from '@/screens/LoadingScreen';
-import BottomNavbar from '@/components/layout/BottomNavbar';
-import FAB from '@/components/FAB';
 import CalculatorFAB from '@/components/CalculatorFAB';
 import CalculatorModal from '@/components/CalculatorModal';
 import AddRecordModal from '@/components/AddRecordModal';
@@ -334,9 +332,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {children}
         {showNav && (
           <>
-
-            <FAB />
-            <BottomNavbar />
 
             {/* Notification Backdrop */}
             <AnimatePresence>
