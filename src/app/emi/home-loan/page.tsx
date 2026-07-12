@@ -162,18 +162,6 @@ export default function HomeLoanPage() {
       setIsSubmitting(false);
     }
   };
-      
-      setToast({ open: true, message: 'Entry saved successfully!', type: 'success' });
-      fetchHistory(true); // silent fetch
-    } catch (err) {
-      console.error(err);
-      setToast({ open: true, message: 'Failed to save entry', type: 'info' });
-      // Revert optimistic update
-      fetchHistory(true); 
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleEdit = (entry: HomeLoanEntry) => {
     setEditingId(entry.id!);
