@@ -1,34 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Container,
   Typography,
   TextField,
   Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Grid,
-  Card,
-  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
   CircularProgress,
-  Alert
 } from '@mui/material';
+import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend
 } from 'recharts';
 
 interface HomeLoanEntry {
@@ -45,20 +41,20 @@ export default function HomeLoanPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   // Form State
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [totalPayment, setTotalPayment] = useState('');
   const [principal, setPrincipal] = useState('');
   const [interest, setInterest] = useState('');
   const [balance, setBalance] = useState('');
 
-  // Amortization State
-  const [interestRate, setInterestRate] = useState('8.5');
-  const [emiAmount, setEmiAmount] = useState('');
-  const [projectionResult, setProjectionResult] = useState<{
-    months: number;
-    totalInterest: number;
-  } | null>(null);
+  // Settings / Projection State
+  const [manualInterestRate, setManualInterestRate] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [plannedEmi, setPlannedEmi] = useState<string>('');
 
   useEffect(() => {
     fetchHistory();
@@ -77,13 +73,15 @@ export default function HomeLoanPage() {
       const res = await fetch(`/api/sheets/home-loan?familyCode=${familyData.familyCode}`);
       const data = await res.json();
       if (data.items) {
-        // Sort by date ascending for chart
         const sorted = data.items.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
         setHistory(sorted);
         
         if (sorted.length > 0) {
-           const latestBalance = sorted[sorted.length - 1].balance;
-           setBalance(latestBalance.toString());
+           const latest = sorted[sorted.length - 1];
+           setBalance(latest.balance.toString());
+           if (!plannedEmi) {
+              setPlannedEmi(latest.totalPayment.toString());
+           }
         }
       }
     } catch (err) {
@@ -97,15 +95,10 @@ export default function HomeLoanPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     try {
       const familyRes = await fetch('/api/sheets/family');
       const familyData = await familyRes.json();
-      if (!familyData.familyCode) {
-         setError('No family code found');
-         return;
-      }
-
+      
       const res = await fetch('/api/sheets/home-loan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,10 +114,11 @@ export default function HomeLoanPage() {
 
       if (!res.ok) throw new Error('Failed to save entry');
       
-      setDate('');
+      setDate(new Date().toISOString().split('T')[0]);
       setTotalPayment('');
       setPrincipal('');
       setInterest('');
+      setIsAddModalOpen(false);
       
       fetchHistory();
     } catch (err) {
@@ -133,211 +127,363 @@ export default function HomeLoanPage() {
     }
   };
 
-  const calculateAmortization = () => {
-    if (history.length === 0) return;
+  // Auto-calculate interest rate based on the last payment
+  const effectiveInterestRate = useMemo(() => {
+    if (manualInterestRate) return parseFloat(manualInterestRate);
+    if (history.length === 0) return 8.5; // default fallback
+
+    const lastPayment = history[history.length - 1];
+    let prevBalance = lastPayment.balance + lastPayment.principal;
+    if (history.length > 1) {
+      prevBalance = history[history.length - 2].balance;
+    }
+    
+    if (prevBalance <= 0) return 0;
+    
+    const monthlyRate = lastPayment.interest / prevBalance;
+    const annualRate = monthlyRate * 12 * 100;
+    return parseFloat(annualRate.toFixed(2));
+  }, [history, manualInterestRate]);
+
+  // Generate Future Amortization Projection
+  const futureProjection = useMemo(() => {
+    if (history.length === 0) return [];
+    
     const currentBalance = history[history.length - 1].balance;
-    const rate = parseFloat(interestRate) / 100 / 12; // monthly interest rate
-    const emi = parseFloat(emiAmount);
+    const rate = effectiveInterestRate / 100 / 12; // monthly interest rate
+    const emi = parseFloat(plannedEmi) || history[history.length - 1].totalPayment;
     
     if (!currentBalance || !rate || !emi || emi <= currentBalance * rate) {
-       alert("EMI must be greater than monthly interest.");
-       return;
+       return [];
     }
 
     let bal = currentBalance;
     let months = 0;
-    let totalInt = 0;
+    const projection = [];
+    const currentDate = new Date(history[history.length - 1].date);
 
-    while (bal > 0 && months < 1200) { // cap at 100 years
+    while (bal > 0 && months < 360) { // cap at 30 years
+      months++;
       const int = bal * rate;
       const prin = emi - int;
-      if (prin >= bal) {
-         totalInt += int;
-         bal = 0;
-         months++;
-         break;
-      }
-      bal -= prin;
-      totalInt += int;
-      months++;
+      
+      const actualPrin = prin >= bal ? bal : prin;
+      bal -= actualPrin;
+      
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      
+      // We sample every few months or just store all for the graph
+      projection.push({
+        month: months,
+        date: `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2, '0')}`,
+        principal: actualPrin,
+        interest: int,
+        balance: bal
+      });
+      
+      if (bal <= 0) break;
     }
 
-    setProjectionResult({ months, totalInterest: totalInt });
-  };
+    return projection;
+  }, [history, effectiveInterestRate, plannedEmi]);
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center items-center min-h-[70vh]">
+        <CircularProgress className="text-primary" />
+      </div>
     );
   }
 
+  const latestBalance = history.length > 0 ? history[history.length - 1].balance : 0;
+  const initialBalance = history.length > 0 ? history[0].balance + history[0].principal : 0; // rough estimate
+  const totalPaidPrincipal = history.reduce((acc, curr) => acc + curr.principal, 0);
+  const totalPaidInterest = history.reduce((acc, curr) => acc + curr.interest, 0);
+  const progressPercent = initialBalance > 0 ? ((initialBalance - latestBalance) / initialBalance) * 100 : 0;
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md p-4 rounded-xl border border-white/20 shadow-xl">
+          <p className="font-semibold mb-2 text-slate-800 dark:text-slate-200">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-slate-600 dark:text-slate-400 capitalize">{entry.name}:</span>
+              <span className="font-medium font-mono text-slate-900 dark:text-slate-100">
+                ₹{Math.round(entry.value).toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
-        Home Loan Ledger
-      </Typography>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0f1c] text-slate-900 dark:text-slate-100 pb-24">
+      {/* Hero Section */}
+      <div className="relative pt-12 pb-8 px-6 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <Typography variant="h4" className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Landmark className="text-primary w-8 h-8" />
+                Home Loan
+              </Typography>
+              <Typography variant="body2" className="text-slate-500 dark:text-slate-400 mt-1">
+                Track your journey to being debt-free
+              </Typography>
+            </div>
+            <div className="text-right">
+              <Typography variant="caption" className="text-slate-500 dark:text-slate-400 block mb-1">
+                Effective Interest Rate
+              </Typography>
+              <div className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full font-semibold">
+                <Percent size={14} />
+                {effectiveInterestRate}%
+              </div>
+            </div>
+          </div>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+          <div className="flex flex-col md:flex-row gap-8 items-center bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-3xl p-8 border border-primary/10">
+            <div className="flex-1">
+              <Typography variant="subtitle2" className="text-slate-600 dark:text-slate-400 font-medium tracking-wide uppercase">
+                Remaining Balance
+              </Typography>
+              <Typography variant="h2" className="font-bold font-mono text-slate-900 dark:text-white my-2">
+                ₹{latestBalance.toLocaleString('en-IN')}
+              </Typography>
+              <div className="flex gap-6 mt-6">
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                    <TrendingDown size={16} className="text-green-500" /> Principal Paid
+                  </div>
+                  <span className="font-mono font-semibold">₹{totalPaidPrincipal.toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                    <ArrowDownRight size={16} className="text-red-500" /> Interest Paid
+                  </div>
+                  <span className="font-mono font-semibold">₹{totalPaidInterest.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative w-32 h-32 flex-shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="64" cy="64" r="56" className="stroke-slate-200 dark:stroke-slate-800" strokeWidth="12" fill="none" />
+                <circle cx="64" cy="64" r="56" className="stroke-primary" strokeWidth="12" fill="none" strokeDasharray="351.85" strokeDashoffset={351.85 - (351.85 * Math.min(progressPercent, 100)) / 100} strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold">{Math.round(progressPercent)}%</span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Paid</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: 3 }}>
-            <Typography variant="h6" gutterBottom>Add Repayment Entry</Typography>
-            <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="Date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                required
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Total Payment"
-                type="number"
-                value={totalPayment}
-                onChange={(e) => setTotalPayment(e.target.value)}
-                required
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Principal"
-                type="number"
-                value={principal}
-                onChange={(e) => setPrincipal(e.target.value)}
-                required
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Interest"
-                type="number"
-                value={interest}
-                onChange={(e) => setInterest(e.target.value)}
-                required
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Remaining Balance"
-                type="number"
-                value={balance}
-                onChange={(e) => setBalance(e.target.value)}
-                required
-                fullWidth
-                size="small"
-              />
-              <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 1, py: 1.5, borderRadius: 2 }}>
-                Save Entry
-              </Button>
-            </Box>
-          </Paper>
+      <div className="max-w-4xl mx-auto px-6 mt-8 space-y-8">
+        {/* Future Projection Area Chart */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-6">
+            <Typography variant="h6" className="font-bold">Future Amortization</Typography>
+            <Button size="small" variant="text" onClick={() => setShowSettings(!showSettings)}>
+              {showSettings ? 'Hide Settings' : 'Advanced'}
+            </Button>
+          </div>
 
-          <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 3 }}>
-            <Typography variant="h6" gutterBottom>Amortization Projection</Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Calculated based on your latest balance.
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+          {showSettings && (
+            <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex gap-4">
               <TextField
-                label="Annual Interest Rate (%)"
+                label="Manual Interest Override (%)"
                 type="number"
                 inputProps={{ step: "0.1" }}
-                value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
-                fullWidth
+                value={manualInterestRate}
+                onChange={(e) => setManualInterestRate(e.target.value)}
                 size="small"
+                helperText="Leave empty to auto-calculate"
+                className="flex-1"
               />
               <TextField
-                label="Planned EMI Amount"
+                label="Planned EMI"
                 type="number"
-                value={emiAmount}
-                onChange={(e) => setEmiAmount(e.target.value)}
-                fullWidth
+                value={plannedEmi}
+                onChange={(e) => setPlannedEmi(e.target.value)}
                 size="small"
+                className="flex-1"
               />
-              <Button variant="outlined" color="secondary" onClick={calculateAmortization} fullWidth sx={{ borderRadius: 2 }}>
-                Project Payoff
-              </Button>
-            </Box>
-            
-            {projectionResult && (
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">Projection Results:</Typography>
-                <Typography variant="body2">Time to payoff: {Math.floor(projectionResult.months / 12)} years, {projectionResult.months % 12} months</Typography>
-                <Typography variant="body2">Total Interest: ₹{Math.round(projectionResult.totalInterest).toLocaleString()}</Typography>
-              </Box>
+            </div>
+          )}
+
+          {futureProjection.length > 0 ? (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={futureProjection} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorPrincipal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorInterest" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-slate-200 dark:text-slate-700 opacity-50" />
+                  <XAxis dataKey="date" tick={{fontSize: 12}} tickLine={false} axisLine={false} minTickGap={30} />
+                  <YAxis tick={{fontSize: 12}} tickFormatter={(val) => `₹${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                  <Area type="monotone" dataKey="principal" stackId="1" stroke="#3b82f6" strokeWidth={2} fill="url(#colorPrincipal)" name="Principal Portion" />
+                  <Area type="monotone" dataKey="interest" stackId="1" stroke="#ef4444" strokeWidth={2} fill="url(#colorInterest)" name="Interest Portion" />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                Estimated payoff in <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.floor(futureProjection.length / 12)} years and {futureProjection.length % 12} months</span>
+              </div>
+            </div>
+          ) : (
+             <div className="flex justify-center items-center h-[200px] text-slate-500">
+               Not enough data to generate projection
+             </div>
+          )}
+        </div>
+
+        {/* Transaction History Tiles */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+          <Typography variant="h6" className="font-bold mb-4">Repayment History</Typography>
+          <div className="space-y-4">
+            {[...history].reverse().map((entry, idx) => (
+              <div key={entry.id || idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <Typography variant="subtitle2" className="font-bold text-slate-900 dark:text-white">
+                      ₹{entry.totalPayment.toLocaleString('en-IN')}
+                    </Typography>
+                    <Typography variant="caption" className="text-slate-500">
+                      {new Date(entry.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </Typography>
+                  </div>
+                </div>
+                <div className="text-right flex items-center gap-6">
+                  <div className="hidden sm:block">
+                    <Typography variant="caption" className="text-slate-500 block mb-0.5">Principal</Typography>
+                    <Typography variant="body2" className="font-mono text-green-600 dark:text-green-400">₹{entry.principal.toLocaleString('en-IN')}</Typography>
+                  </div>
+                  <div className="hidden sm:block">
+                    <Typography variant="caption" className="text-slate-500 block mb-0.5">Interest</Typography>
+                    <Typography variant="body2" className="font-mono text-red-500 dark:text-red-400">₹{entry.interest.toLocaleString('en-IN')}</Typography>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+                  <div>
+                    <Typography variant="caption" className="text-slate-500 block mb-0.5">Balance</Typography>
+                    <Typography variant="body2" className="font-mono font-bold">₹{entry.balance.toLocaleString('en-IN')}</Typography>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {history.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                No repayments added yet.
+              </div>
             )}
-          </Paper>
-        </Grid>
+          </div>
+        </div>
+      </div>
 
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: 3 }}>
-            <Typography variant="h6" gutterBottom>Principal vs Interest Trend</Typography>
-            <Box sx={{ height: 350, mt: 3 }}>
-              {history.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={history} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="date" tick={{fontSize: 12}} />
-                    <YAxis tick={{fontSize: 12}} />
-                    <Tooltip contentStyle={{ borderRadius: '8px' }} />
-                    <Legend />
-                    <Bar dataKey="principal" stackId="a" fill="#3f51b5" name="Principal" radius={[0, 0, 4, 4]} />
-                    <Bar dataKey="interest" stackId="a" fill="#f50057" name="Interest" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                  <Typography color="text.secondary">No history data available.</Typography>
-                </Box>
-              )}
-            </Box>
-          </Paper>
+      {/* Floating Action Button */}
+      <div className="fixed bottom-32 right-6 z-40">
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+        >
+          <Plus size={28} />
+        </button>
+      </div>
 
-          <Paper sx={{ p: 0, overflow: 'hidden', borderRadius: 3, boxShadow: 3 }}>
-            <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6">Repayment History</Typography>
-            </Box>
-            <TableContainer sx={{ maxHeight: 400 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Principal</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Interest</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Balance</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {history.map((row, i) => (
-                    <TableRow key={i} hover>
-                      <TableCell>{row.date}</TableCell>
-                      <TableCell align="right">₹{row.totalPayment.toLocaleString()}</TableCell>
-                      <TableCell align="right">₹{row.principal.toLocaleString()}</TableCell>
-                      <TableCell align="right">₹{row.interest.toLocaleString()}</TableCell>
-                      <TableCell align="right">₹{row.balance.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                  {history.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                        <Typography color="text.secondary">No records found.</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Container>
+      {/* Add Repayment Modal */}
+      <Dialog 
+        open={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)}
+        PaperProps={{
+          className: "bg-white dark:bg-slate-900 rounded-3xl m-4 w-full max-w-sm"
+        }}
+      >
+        <DialogTitle className="flex items-center justify-between pb-2 pt-6 px-6">
+          <Typography variant="h6" className="font-bold text-slate-900 dark:text-white">Add Repayment</Typography>
+          <IconButton onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
+        <form onSubmit={handleSubmit}>
+          <DialogContent className="px-6 pb-2 pt-2 flex flex-col gap-4">
+            <TextField
+              label="Date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Total Payment (EMI)"
+              type="number"
+              value={totalPayment}
+              onChange={(e) => setTotalPayment(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Principal Portion"
+              type="number"
+              value={principal}
+              onChange={(e) => setPrincipal(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Interest Portion"
+              type="number"
+              value={interest}
+              onChange={(e) => setInterest(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="New Remaining Balance"
+              type="number"
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+              required
+              fullWidth
+            />
+          </DialogContent>
+          <DialogActions className="px-6 pb-6 pt-4">
+            <Button 
+              type="button" 
+              onClick={() => setIsAddModalOpen(false)}
+              className="text-slate-500"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              className="bg-primary hover:bg-primary-dark rounded-xl px-6"
+              disableElevation
+            >
+              Save Entry
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </div>
   );
 }

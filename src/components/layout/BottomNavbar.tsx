@@ -18,9 +18,13 @@ export default function BottomNavbar() {
       <Link href="/personal" className={linkClassName('/personal')}>
         <Home size={24} />
       </Link>
+
+      <Link href="/emi/home-loan" className={linkClassName('/emi/home-loan')}>
+        <Landmark size={24} />
+      </Link>
       
       {/* Space for FAB */}
-      <div className="w-8 h-8" />
+      <div className="w-8 h-8 mx-2" />
       
       <Link href="/family" className={linkClassName('/family')}>
         <Users size={24} />
