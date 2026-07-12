@@ -406,7 +406,7 @@ export default function HomeLoanPage() {
             </div>
           </div>
 
-          <div ref={cardRef} className="relative flex flex-col md:flex-row gap-8 items-center bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-3xl p-8 border border-primary/10 mt-8">
+          <div ref={cardRef} className="relative flex flex-col md:flex-row gap-6 md:gap-8 items-center bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-3xl p-6 md:p-8 border border-primary/10 mt-8">
             <div className="absolute top-4 right-4" data-html2canvas-ignore="true">
               <IconButton onClick={handleShareCard} size="small" className="bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 backdrop-blur-md shadow-sm">
                 <Share2 size={18} className="text-primary" />
@@ -417,10 +417,10 @@ export default function HomeLoanPage() {
               <Typography variant="subtitle2" className="text-slate-600 dark:text-slate-400 font-medium tracking-wide uppercase">
                 Remaining Balance
               </Typography>
-              <Typography variant="h2" className="font-bold font-mono text-slate-900 dark:text-white my-2">
+              <Typography variant="h2" sx={{ fontSize: { xs: '2.5rem', sm: '3rem', md: '3.75rem' } }} className="font-bold font-mono text-slate-900 dark:text-white my-2">
                 ₹{latestBalance.toLocaleString('en-IN')}
               </Typography>
-              <div className="flex gap-6 mt-6">
+              <div className="flex gap-4 md:gap-6 mt-6">
                 <div>
                   <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-sm mb-1">
                     <TrendingDown size={16} className="text-green-500" /> Principal Paid
