@@ -12,6 +12,8 @@ import {
   DialogActions,
   IconButton,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar } from 'lucide-react';
 import {
@@ -41,6 +43,7 @@ export default function HomeLoanPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{open: boolean, message: string, type: 'success' | 'info'}>({ open: false, message: '', type: 'success' });
   
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -58,11 +61,11 @@ export default function HomeLoanPage() {
   const [plannedEmi, setPlannedEmi] = useState<string>('');
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistory(false);
   }, []);
 
-  const fetchHistory = async () => {
-    setLoading(true);
+  const fetchHistory = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const familyRes = await fetch('/api/sheets/family');
       const familyData = await familyRes.json();
@@ -87,9 +90,9 @@ export default function HomeLoanPage() {
       }
     } catch (err) {
       console.error('Failed to fetch home loan history:', err);
-      setError('Failed to load history');
+      if (!isSilent) setError('Failed to load history');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -98,6 +101,25 @@ export default function HomeLoanPage() {
     if (isSubmitting) return;
     setError('');
     setIsSubmitting(true);
+    
+    // Optimistic Update
+    const newEntry = {
+      id: Date.now(), // temporary ID
+      date,
+      totalPayment: parseFloat(totalPayment),
+      principal: parseFloat(principal),
+      interest: parseFloat(interest),
+      balance: parseFloat(balance),
+    };
+    
+    // Update local state immediately
+    setHistory(prev => [...prev, newEntry].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    setBalance(newEntry.balance.toString());
+    
+    // Close modal and show loading toast
+    setIsAddModalOpen(false);
+    setToast({ open: true, message: 'Saving entry...', type: 'info' });
+    
     try {
       const familyRes = await fetch('/api/sheets/family');
       const familyData = await familyRes.json();
@@ -106,27 +128,26 @@ export default function HomeLoanPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date,
-          totalPayment: parseFloat(totalPayment),
-          principal: parseFloat(principal),
-          interest: parseFloat(interest),
-          balance: parseFloat(balance),
+          ...newEntry,
           familyCode: familyData.familyCode
         })
       });
 
       if (!res.ok) throw new Error('Failed to save entry');
       
+      // Reset form
       setDate(new Date().toISOString().split('T')[0]);
       setTotalPayment('');
       setPrincipal('');
       setInterest('');
-      setIsAddModalOpen(false);
       
-      fetchHistory();
+      setToast({ open: true, message: 'Entry saved successfully!', type: 'success' });
+      fetchHistory(true); // silent fetch
     } catch (err) {
       console.error(err);
-      setError('Failed to add entry');
+      setToast({ open: true, message: 'Failed to save entry', type: 'info' });
+      // Revert optimistic update
+      fetchHistory(true); 
     } finally {
       setIsSubmitting(false);
     }
@@ -508,6 +529,22 @@ export default function HomeLoanPage() {
           </DialogActions>
         </form>
       </Dialog>
+      
+      <Snackbar 
+        open={toast.open} 
+        autoHideDuration={4000} 
+        onClose={() => setToast({ ...toast, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setToast({ ...toast, open: false })} 
+          severity={toast.type === 'success' ? 'success' : 'info'} 
+          sx={{ width: '100%', borderRadius: 2 }}
+          variant="filled"
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
