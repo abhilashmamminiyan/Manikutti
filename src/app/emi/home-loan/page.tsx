@@ -127,6 +127,15 @@ export default function HomeLoanPage() {
     }
   };
 
+  // Auto-calculate Total Payment when Principal or Interest changes
+  useEffect(() => {
+    const p = parseFloat(principal) || 0;
+    const i = parseFloat(interest) || 0;
+    if (p > 0 || i > 0) {
+      setTotalPayment((p + i).toString());
+    }
+  }, [principal, interest]);
+
   // Auto-calculate interest rate based on the last payment
   const effectiveInterestRate = useMemo(() => {
     if (manualInterestRate) return parseFloat(manualInterestRate);
@@ -433,14 +442,6 @@ export default function HomeLoanPage() {
               fullWidth
             />
             <TextField
-              label="Total Payment (EMI)"
-              type="number"
-              value={totalPayment}
-              onChange={(e) => setTotalPayment(e.target.value)}
-              required
-              fullWidth
-            />
-            <TextField
               label="Principal Portion"
               type="number"
               value={principal}
@@ -461,6 +462,14 @@ export default function HomeLoanPage() {
               type="number"
               value={balance}
               onChange={(e) => setBalance(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Total Payment (Auto-calculated)"
+              type="number"
+              value={totalPayment}
+              onChange={(e) => setTotalPayment(e.target.value)}
               required
               fullWidth
             />
