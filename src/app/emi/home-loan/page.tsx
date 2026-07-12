@@ -15,7 +15,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar, Trash2, Pencil } from 'lucide-react';
+import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar, Trash2, Pencil, Share2 } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -29,6 +29,7 @@ import {
   Legend
 } from 'recharts';
 import AdminDashboard from '@/screens/AdminDashboard';
+import html2canvas from 'html2canvas';
 
 interface HomeLoanEntry {
   id?: number;
@@ -50,6 +51,7 @@ export default function HomeLoanPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -96,6 +98,40 @@ export default function HomeLoanPage() {
       if (!isSilent) setError('Failed to load history');
     } finally {
       if (!isSilent) setLoading(false);
+    }
+  };
+
+  const handleShareCard = async () => {
+    if (!cardRef.current) return;
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#f8fafc',
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], 'home-loan-status.png', { type: 'image/png' });
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Home Loan Status',
+            text: 'Check out my Home Loan journey progress!',
+            files: [file],
+          });
+        } else {
+          // fallback to download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'home-loan-status.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error('Failed to share:', err);
+      setToast({ open: true, message: 'Failed to share card', type: 'info' });
     }
   };
 
@@ -370,8 +406,14 @@ export default function HomeLoanPage() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 items-center bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-3xl p-8 border border-primary/10">
-            <div className="flex-1">
+          <div ref={cardRef} className="relative flex flex-col md:flex-row gap-8 items-center bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-3xl p-8 border border-primary/10 mt-8">
+            <div className="absolute top-4 right-4" data-html2canvas-ignore="true">
+              <IconButton onClick={handleShareCard} size="small" className="bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 backdrop-blur-md shadow-sm">
+                <Share2 size={18} className="text-primary" />
+              </IconButton>
+            </div>
+            
+            <div className="flex-1 w-full">
               <Typography variant="subtitle2" className="text-slate-600 dark:text-slate-400 font-medium tracking-wide uppercase">
                 Remaining Balance
               </Typography>
