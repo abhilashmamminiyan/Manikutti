@@ -40,6 +40,7 @@ export default function HomeLoanPage() {
   const [history, setHistory] = useState<HomeLoanEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -94,7 +95,9 @@ export default function HomeLoanPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError('');
+    setIsSubmitting(true);
     try {
       const familyRes = await fetch('/api/sheets/family');
       const familyData = await familyRes.json();
@@ -124,6 +127,8 @@ export default function HomeLoanPage() {
     } catch (err) {
       console.error(err);
       setError('Failed to add entry');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -494,10 +499,11 @@ export default function HomeLoanPage() {
             <Button 
               type="submit" 
               variant="contained" 
-              className="bg-primary hover:bg-primary-dark rounded-xl px-6"
+              className={`bg-primary hover:bg-primary-dark rounded-xl px-6 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               disableElevation
+              disabled={isSubmitting}
             >
-              Save Entry
+              {isSubmitting ? 'Saving...' : 'Save Entry'}
             </Button>
           </DialogActions>
         </form>
