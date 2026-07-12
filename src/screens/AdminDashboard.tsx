@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { signOut } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { 
   Box, 
   CssBaseline, 
@@ -40,7 +41,8 @@ import { AdminDialogs } from '../components/admin/AdminDialogs';
 
 const drawerWidth = 260;
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ children }: { children?: React.ReactNode }) {
+  const pathname = usePathname();
   const {
     session,
     activeTab,
@@ -216,7 +218,7 @@ export default function AdminDashboard() {
               { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
               { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
             ].map((tab) => {
-              const selected = activeTab === tab.id;
+              const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
               return (
                 <ListItem key={tab.id} disablePadding>
                   <ListItemButton 
@@ -273,41 +275,45 @@ export default function AdminDashboard() {
       </Drawer>
 
       {/* Main Content Area */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4, mt: 8 }}>
-        {activeTab === 'overview' && (
-          <OverviewTab
-            totals={totals}
-            categoryBreakdown={categoryBreakdown}
-            recentExpenses={recentExpenses}
-          />
-        )}
+      <Box component="main" sx={{ flexGrow: 1, p: 4, mt: 8, maxWidth: '100vw', overflowX: 'hidden' }}>
+        {children ? children : (
+          <>
+            {activeTab === 'overview' && (
+              <OverviewTab
+                totals={totals}
+                categoryBreakdown={categoryBreakdown}
+                recentExpenses={recentExpenses}
+              />
+            )}
 
-        {activeTab === 'expenses' && (
-          <ExpensesTab
-            recentExpenses={recentExpenses}
-            handleOpenEditExpense={handleOpenEditExpense}
-            handleDeleteExpense={handleDeleteExpense}
-          />
-        )}
+            {activeTab === 'expenses' && (
+              <ExpensesTab
+                recentExpenses={recentExpenses}
+                handleOpenEditExpense={handleOpenEditExpense}
+                handleDeleteExpense={handleDeleteExpense}
+              />
+            )}
 
-        {activeTab === 'users' && (
-          <MembersTab
-            userSheets={userSheets}
-            members={members}
-          />
-        )}
+            {activeTab === 'users' && (
+              <MembersTab
+                userSheets={userSheets}
+                members={members}
+              />
+            )}
 
-        {activeTab === 'loans' && (
-          <LedgerTab
-            dues={dues}
-            loans={loans}
-            setAddDueDialogOpen={setAddDueDialogOpen}
-            setAddLoanDialogOpen={setAddLoanDialogOpen}
-            handleOpenEditDue={handleOpenEditDue}
-            handleDeleteDue={handleDeleteDue}
-            handleOpenEditLoan={handleOpenEditLoan}
-            handleDeleteLoan={handleDeleteLoan}
-          />
+            {activeTab === 'loans' && (
+              <LedgerTab
+                dues={dues}
+                loans={loans}
+                setAddDueDialogOpen={setAddDueDialogOpen}
+                setAddLoanDialogOpen={setAddLoanDialogOpen}
+                handleOpenEditDue={handleOpenEditDue}
+                handleDeleteDue={handleDeleteDue}
+                handleOpenEditLoan={handleOpenEditLoan}
+                handleDeleteLoan={handleDeleteLoan}
+              />
+            )}
+          </>
         )}
       </Box>
 
