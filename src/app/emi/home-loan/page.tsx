@@ -458,8 +458,8 @@ export default function HomeLoanPage() {
                   <YAxis tick={{fontSize: 12}} tickFormatter={(val) => `₹${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                  <Area type="monotone" dataKey="principal" stackId="1" stroke="#3b82f6" strokeWidth={2} fill="url(#colorPrincipal)" name="Principal Portion" />
                   <Area type="monotone" dataKey="interest" stackId="1" stroke="#ef4444" strokeWidth={2} fill="url(#colorInterest)" name="Interest Portion" />
+                  <Area type="monotone" dataKey="principal" stackId="1" stroke="#3b82f6" strokeWidth={2} fill="url(#colorPrincipal)" name="Principal Portion" />
                 </AreaChart>
               </ResponsiveContainer>
               <div className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
