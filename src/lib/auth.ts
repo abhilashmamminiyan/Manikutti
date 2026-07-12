@@ -19,7 +19,7 @@ export const authOptions: AuthOptions = {
         const email = credentials.email.toLowerCase().trim();
         
         // Allowed Admin check
-        const adminEmailsStr = process.env.ADMIN_EMAILS || "manikutti.app@gmail.com";
+        const adminEmailsStr = process.env.ADMIN_EMAILS || "dev.abhilashm@gmail.com";
         const adminEmails = adminEmailsStr.split(",").map(e => e.trim().toLowerCase());
         
         if (!adminEmails.includes(email)) {
