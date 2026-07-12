@@ -194,6 +194,32 @@ export default function HomeLoanPage() {
     }
   };
 
+  // Auto-calculate Interest and Principal when Date changes (for new entries)
+  useEffect(() => {
+    if (!isAddModalOpen || editingId !== null || history.length === 0) return;
+    
+    const lastPayment = history[history.length - 1];
+    const prevBalance = lastPayment.balance;
+    const days = (new Date(date).getTime() - new Date(lastPayment.date).getTime()) / (1000 * 60 * 60 * 24);
+    
+    if (days > 0) {
+      let rate = 0.12; 
+      if (history.length > 1) {
+        const prev = history[history.length - 2];
+        const daysBetween = (new Date(lastPayment.date).getTime() - new Date(prev.date).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysBetween > 0) {
+          rate = (lastPayment.interest * 365) / (prev.balance * daysBetween);
+        }
+      }
+      
+      const calculatedInterest = Math.round(prevBalance * rate * (days / 365));
+      const defaultTotal = 12000;
+      
+      setInterest(calculatedInterest.toString());
+      setPrincipal((defaultTotal - calculatedInterest).toString());
+    }
+  }, [date, isAddModalOpen, editingId, history]);
+
   // Auto-calculate Total Payment when Principal or Interest changes
   useEffect(() => {
     const p = parseFloat(principal) || 0;
