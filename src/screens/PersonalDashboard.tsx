@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { ShoppingBag, Edit2, AlertCircle, LogOut, Target, TrendingUp, CheckCircle2, Bell } from 'lucide-react';
 import { useAppShell } from '@/components/AppShell';
 import Header from '@/components/layout/Header';
+import PersonalUtilities from '@/components/PersonalUtilities';
 
 export default function PersonalDashboard() {
   const { setIsAddModalOpen, setInitialType, logout, lastRefresh, user: sessionUser, setIsNotificationOpen, pendingCount } = useAppShell();
@@ -164,6 +165,9 @@ console.log("expenses",expenses)
           <TrendingUp className="text-primary" size={24} />
         </div>
       </section>
+
+      {/* Utilities */}
+      <PersonalUtilities />
 
       {/* Goals Progress */}
       {goals.length > 0 && (

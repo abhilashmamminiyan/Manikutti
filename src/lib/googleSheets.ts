@@ -147,6 +147,7 @@ export class GoogleSheetsService {
       // Create new Personal sheet under service account
       const sheetsConfig = [
         { properties: { title: 'Personal_Expenses' } },
+        { properties: { title: 'Personal_Utilities' } },
         { properties: { title: 'Settings' } },
         { properties: { title: 'Goals' } },
       ];
@@ -179,7 +180,7 @@ export class GoogleSheetsService {
     
     let requiredSheets: string[] = [];
     if (type === 'Personal') {
-      requiredSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
+      requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History'];
     } else if (type === 'Family') {
       requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
     } else if (type === 'Admin') {
@@ -206,6 +207,7 @@ export class GoogleSheetsService {
   private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin', specificSheets?: string[]) {
     const headers: Record<string, string[][]> = {
       'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type']],
+      'Personal_Utilities': [['Title', 'Amount', 'Validity', 'Status', 'Last Paid Date', 'Next Due Date', 'Note', 'Log Expense']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
       'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
@@ -223,7 +225,7 @@ export class GoogleSheetsService {
 
     let defaultSheets: string[] = [];
     if (type === 'Personal') {
-      defaultSheets = ['Personal_Expenses', 'Settings', 'Goals', 'Calculator_History'];
+      defaultSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History'];
     } else if (type === 'Family') {
       defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
     } else if (type === 'Admin') {
