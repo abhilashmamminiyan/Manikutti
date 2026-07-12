@@ -26,7 +26,8 @@ import {
   Payments as PaymentsIcon, 
   ExitToApp as ExitToAppIcon,
   People as PeopleIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
+  AccountBalance as AccountBalanceIcon
 } from '@mui/icons-material';
 
 import { useAdminDashboard } from '../hooks/useAdminDashboard';
@@ -210,13 +211,20 @@ export default function AdminDashboard() {
               { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
               { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
               { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
-              { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> }
+              { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+              { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> }
             ].map((tab) => {
               const selected = activeTab === tab.id;
               return (
                 <ListItem key={tab.id} disablePadding>
                   <ListItemButton 
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => {
+                      if (tab.id === 'home-loan') {
+                        window.location.href = '/emi/home-loan';
+                      } else {
+                        setActiveTab(tab.id as any);
+                      }
+                    }}
                     sx={{
                       bgcolor: selected ? 'rgba(0, 105, 114, 0.2)' : 'transparent',
                       borderLeft: selected ? '4px solid #006972' : 'none',
