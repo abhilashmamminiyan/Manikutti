@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { 
@@ -29,7 +29,8 @@ import {
   People as PeopleIcon,
   Notifications as NotificationsIcon,
   AccountBalance as AccountBalanceIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Menu as MenuIcon
 } from '@mui/icons-material';
 
 import { useAdminDashboard } from '../hooks/useAdminDashboard';
@@ -43,6 +44,12 @@ const drawerWidth = 260;
 
 export default function AdminDashboard({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+  
   const {
     session,
     activeTab,
@@ -184,9 +191,20 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
       {/* Header bar */}
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: '#006972', elevation: 2 }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Typography variant="h6" noWrap component="div" sx={{ fontFamily: 'Manrope', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1 }}>
-            🏠 Manikutti Finance Admin Console
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div" sx={{ fontFamily: 'Manrope', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1 }}>
+              🏠 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Manikutti Finance Admin Console</Box>
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 'bold' }}>
               Admin: {session?.user?.email}
@@ -199,80 +217,171 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
       </AppBar>
 
       {/* Side navigation */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', bgcolor: '#1e293b', color: 'white' },
-        }}
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto', mt: 2 }}>
-          <List>
-            {[
-              { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
-              { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
-              { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
-              { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
-              { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
-              { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
-            ].map((tab) => {
-              const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
-              return (
-                <ListItem key={tab.id} disablePadding>
-                  <ListItemButton 
-                    onClick={() => {
-                      if (tab.id === 'home-loan') {
-                        window.location.href = '/emi/home-loan';
-                      } else if (tab.id === 'profile') {
-                        window.location.href = '/profile';
-                      } else {
-                        setActiveTab(tab.id as any);
-                      }
-                    }}
-                    sx={{
-                      bgcolor: selected ? 'rgba(0, 105, 114, 0.2)' : 'transparent',
-                      borderLeft: selected ? '4px solid #006972' : 'none',
-                      color: selected ? '#92f1fe' : 'white',
-                      py: 1.5,
-                      '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
-                    }}
-                  >
-                    <ListItemIcon sx={{ color: selected ? '#92f1fe' : 'rgba(255, 255, 255, 0.7)' }}>
-                      {tab.icon}
-                    </ListItemIcon>
-                    <ListItemText primary={<Typography sx={{ fontWeight: selected ? 'bold' : 'normal' }}>{tab.label}</Typography>} />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
-          <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
-          <Box sx={{ px: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Button 
-              fullWidth 
-              variant="outlined" 
-              color="inherit" 
-              onClick={() => setInviteDialogOpen(true)}
-              sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
-              startIcon={<PeopleIcon />}
-            >
-              Invite Member
-            </Button>
-            <Button 
-              fullWidth 
-              variant="outlined" 
-              color="inherit" 
-              onClick={() => setNotificationDialogOpen(true)}
-              sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
-              startIcon={<NotificationsIcon />}
-            >
-              Send Notification
-            </Button>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true, // Better open performance on mobile.
+          }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#1e293b', color: 'white' },
+          }}
+        >
+          <Toolbar />
+          <Box sx={{ overflow: 'auto', mt: 2 }}>
+            <List>
+              {[
+                { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
+                { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
+                { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
+                { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+                { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
+                { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
+              ].map((tab) => {
+                const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
+                return (
+                  <ListItem key={tab.id} disablePadding>
+                    <ListItemButton 
+                      onClick={() => {
+                        setMobileOpen(false);
+                        if (tab.id === 'home-loan') {
+                          window.location.href = '/emi/home-loan';
+                        } else if (tab.id === 'profile') {
+                          window.location.href = '/profile';
+                        } else {
+                          setActiveTab(tab.id as any);
+                        }
+                      }}
+                      sx={{
+                        bgcolor: selected ? 'rgba(0, 105, 114, 0.2)' : 'transparent',
+                        borderLeft: selected ? '4px solid #006972' : 'none',
+                        color: selected ? '#92f1fe' : 'white',
+                        py: 1.5,
+                        '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+                      }}
+                    >
+                      <ListItemIcon sx={{ color: selected ? '#92f1fe' : 'rgba(255, 255, 255, 0.7)' }}>
+                        {tab.icon}
+                      </ListItemIcon>
+                      <ListItemText primary={<Typography sx={{ fontWeight: selected ? 'bold' : 'normal' }}>{tab.label}</Typography>} />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+            <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
+            <Box sx={{ px: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                color="inherit" 
+                onClick={() => {
+                  setMobileOpen(false);
+                  setInviteDialogOpen(true);
+                }}
+                sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
+                startIcon={<PeopleIcon />}
+              >
+                Invite Member
+              </Button>
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                color="inherit" 
+                onClick={() => {
+                  setMobileOpen(false);
+                  setNotificationDialogOpen(true);
+                }}
+                sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
+                startIcon={<NotificationsIcon />}
+              >
+                Send Notification
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      </Drawer>
+        </Drawer>
+        
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', bgcolor: '#1e293b', color: 'white' },
+          }}
+          open
+        >
+          <Toolbar />
+          <Box sx={{ overflow: 'auto', mt: 2 }}>
+            <List>
+              {[
+                { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
+                { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
+                { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
+                { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+                { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
+                { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
+              ].map((tab) => {
+                const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
+                return (
+                  <ListItem key={tab.id} disablePadding>
+                    <ListItemButton 
+                      onClick={() => {
+                        if (tab.id === 'home-loan') {
+                          window.location.href = '/emi/home-loan';
+                        } else if (tab.id === 'profile') {
+                          window.location.href = '/profile';
+                        } else {
+                          setActiveTab(tab.id as any);
+                        }
+                      }}
+                      sx={{
+                        bgcolor: selected ? 'rgba(0, 105, 114, 0.2)' : 'transparent',
+                        borderLeft: selected ? '4px solid #006972' : 'none',
+                        color: selected ? '#92f1fe' : 'white',
+                        py: 1.5,
+                        '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+                      }}
+                    >
+                      <ListItemIcon sx={{ color: selected ? '#92f1fe' : 'rgba(255, 255, 255, 0.7)' }}>
+                        {tab.icon}
+                      </ListItemIcon>
+                      <ListItemText primary={<Typography sx={{ fontWeight: selected ? 'bold' : 'normal' }}>{tab.label}</Typography>} />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+            <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
+            <Box sx={{ px: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                color="inherit" 
+                onClick={() => setInviteDialogOpen(true)}
+                sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
+                startIcon={<PeopleIcon />}
+              >
+                Invite Member
+              </Button>
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                color="inherit" 
+                onClick={() => setNotificationDialogOpen(true)}
+                sx={{ borderColor: 'rgba(255,255,255,0.3)', borderRadius: 2, textTransform: 'none' }}
+                startIcon={<NotificationsIcon />}
+              >
+                Send Notification
+              </Button>
+            </Box>
+          </Box>
+        </Drawer>
+      </Box>
 
       {/* Main Content Area */}
       <Box component="main" sx={{ flexGrow: 1, p: 4, mt: 8, maxWidth: '100vw', overflowX: 'hidden' }}>
