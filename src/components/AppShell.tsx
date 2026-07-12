@@ -326,7 +326,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  const showNav = false;
+  const showNav = isLoggedIn && pathname !== '/login' && !pathname.startsWith('/admin');
 
   return (
     <AppShellContext.Provider value={value}>
