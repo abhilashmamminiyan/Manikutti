@@ -260,17 +260,27 @@ export default function HomeLoanPage() {
   const futureProjection = useMemo(() => {
     if (history.length === 0) return [];
     
+    const projection = history.map((entry, index) => {
+      const d = new Date(entry.date);
+      return {
+        month: -(history.length - index),
+        date: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`,
+        principal: entry.principal,
+        interest: entry.interest,
+        balance: entry.balance
+      };
+    });
+
     const currentBalance = history[history.length - 1].balance;
     const rate = effectiveInterestRate / 100 / 12; // monthly interest rate
     const emi = parseFloat(plannedEmi) || history[history.length - 1].totalPayment;
     
     if (!currentBalance || !rate || !emi || emi <= currentBalance * rate) {
-       return [];
+       return projection;
     }
 
     let bal = currentBalance;
     let months = 0;
-    const projection = [];
     const currentDate = new Date(history[history.length - 1].date);
 
     while (bal > 0 && months < 360) { // cap at 30 years
