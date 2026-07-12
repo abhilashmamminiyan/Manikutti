@@ -15,7 +15,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar } from 'lucide-react';
+import { Plus, X, Landmark, TrendingDown, ArrowDownRight, ArrowRight, Wallet, Percent, Calendar, Trash2, Pencil } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -47,6 +47,8 @@ export default function HomeLoanPage() {
   
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -104,7 +106,7 @@ export default function HomeLoanPage() {
     
     // Optimistic Update
     const newEntry = {
-      id: Date.now(), // temporary ID
+      id: editingId || Date.now(), // temporary ID if not editing
       date,
       totalPayment: parseFloat(totalPayment),
       principal: parseFloat(principal),
@@ -113,7 +115,11 @@ export default function HomeLoanPage() {
     };
     
     // Update local state immediately
-    setHistory(prev => [...prev, newEntry].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    if (editingId) {
+      setHistory(prev => prev.map(item => item.id === editingId ? newEntry : item).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    } else {
+      setHistory(prev => [...prev, newEntry].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    }
     setBalance(newEntry.balance.toString());
     
     // Close modal and show loading toast
@@ -124,13 +130,16 @@ export default function HomeLoanPage() {
       const familyRes = await fetch('/api/sheets/family');
       const familyData = await familyRes.json();
       
+      const payload = {
+        ...newEntry,
+        familyCode: familyData.familyCode
+      };
+      
+      const method = editingId ? 'PUT' : 'POST';
       const res = await fetch('/api/sheets/home-loan', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newEntry,
-          familyCode: familyData.familyCode
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) throw new Error('Failed to save entry');
@@ -140,6 +149,7 @@ export default function HomeLoanPage() {
       setTotalPayment('');
       setPrincipal('');
       setInterest('');
+      setEditingId(null);
       
       setToast({ open: true, message: 'Entry saved successfully!', type: 'success' });
       fetchHistory(true); // silent fetch
@@ -150,6 +160,49 @@ export default function HomeLoanPage() {
       fetchHistory(true); 
     } finally {
       setIsSubmitting(false);
+    }
+  };
+      
+      setToast({ open: true, message: 'Entry saved successfully!', type: 'success' });
+      fetchHistory(true); // silent fetch
+    } catch (err) {
+      console.error(err);
+      setToast({ open: true, message: 'Failed to save entry', type: 'info' });
+      // Revert optimistic update
+      fetchHistory(true); 
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (entry: HomeLoanEntry) => {
+    setEditingId(entry.id!);
+    setDate(entry.date);
+    setTotalPayment(entry.totalPayment.toString());
+    setPrincipal(entry.principal.toString());
+    setInterest(entry.interest.toString());
+    setBalance(entry.balance.toString());
+    setIsAddModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    
+    // Optimistic delete
+    setHistory(prev => prev.filter(item => item.id !== deletingId));
+    setDeletingId(null);
+    setToast({ open: true, message: 'Deleting entry...', type: 'info' });
+    
+    try {
+      const res = await fetch(`/api/sheets/home-loan?id=${deletingId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      
+      setToast({ open: true, message: 'Entry deleted successfully', type: 'success' });
+      fetchHistory(true);
+    } catch (err) {
+      console.error(err);
+      setToast({ open: true, message: 'Failed to delete entry', type: 'info' });
+      fetchHistory(true);
     }
   };
 
@@ -429,6 +482,14 @@ export default function HomeLoanPage() {
                     <Typography variant="caption" className="text-slate-500 block mb-0.5">Balance</Typography>
                     <Typography variant="body2" className="font-mono font-bold">₹{entry.balance.toLocaleString('en-IN')}</Typography>
                   </div>
+                  <div className="flex gap-1 ml-2">
+                    <IconButton size="small" onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-primary">
+                      <Pencil size={16} />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => setDeletingId(entry.id!)} className="text-slate-400 hover:text-red-500">
+                      <Trash2 size={16} />
+                    </IconButton>
+                  </div>
                 </div>
               </div>
             ))}
@@ -528,6 +589,26 @@ export default function HomeLoanPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+      
+      {/* Delete Confirmation Modal */}
+      <Dialog
+        open={deletingId !== null}
+        onClose={() => setDeletingId(null)}
+        PaperProps={{ className: "bg-white dark:bg-slate-900 rounded-3xl m-4 w-full max-w-xs" }}
+      >
+        <DialogTitle className="font-bold text-slate-900 dark:text-white">Delete Entry?</DialogTitle>
+        <DialogContent>
+          <Typography className="text-slate-500 dark:text-slate-400">
+            This action will permanently delete this repayment from your history.
+          </Typography>
+        </DialogContent>
+        <DialogActions className="px-6 pb-6">
+          <Button onClick={() => setDeletingId(null)} className="text-slate-500">Cancel</Button>
+          <Button onClick={confirmDelete} variant="contained" color="error" className="rounded-xl px-6" disableElevation>
+            Delete
+          </Button>
+        </DialogActions>
       </Dialog>
       
       <Snackbar 
