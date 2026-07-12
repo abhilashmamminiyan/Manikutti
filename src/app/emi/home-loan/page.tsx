@@ -136,6 +136,15 @@ export default function HomeLoanPage() {
     }
   }, [principal, interest]);
 
+  // Auto-calculate Remaining Balance when Principal changes
+  useEffect(() => {
+    const p = parseFloat(principal) || 0;
+    if (p > 0 && history.length > 0) {
+      const prevBal = history[history.length - 1].balance;
+      setBalance((prevBal - p).toString());
+    }
+  }, [principal, history]);
+
   // Auto-calculate interest rate based on the last payment
   const effectiveInterestRate = useMemo(() => {
     if (manualInterestRate) return parseFloat(manualInterestRate);
