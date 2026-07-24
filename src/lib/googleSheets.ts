@@ -64,45 +64,6 @@ export class GoogleSheetsService {
     }
   }
 
-  public async updateRow(spreadsheetId: string, range: string, values: any[]) {
-    await this.sheets.spreadsheets.values.update({
-      auth: this.auth,
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [values] },
-    });
-  }
-
-  public async deleteRow(spreadsheetId: string, sheetName: string, rowIndex: number) {
-    const sheetMeta = await this.sheets.spreadsheets.get({ 
-      auth: this.auth,
-      spreadsheetId 
-    });
-    
-    const sheet = sheetMeta.data.sheets?.find(s => s.properties?.title === sheetName);
-    if (!sheet || !sheet.properties?.sheetId) {
-      throw new Error(`Sheet ${sheetName} not found`);
-    }
-
-    await this.sheets.spreadsheets.batchUpdate({
-      auth: this.auth,
-      spreadsheetId,
-      requestBody: {
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: sheet.properties.sheetId,
-              dimension: 'ROWS',
-              startIndex: rowIndex,
-              endIndex: rowIndex + 1
-            }
-          }
-        }]
-      }
-    });
-  }
-
   public async findOrCreateSheet(type: 'Personal' | 'Family', familyName?: string): Promise<string | null> {
       if (type === 'Family') {
         const familySheetId = process.env.FAMILY_SPREADSHEET_ID;

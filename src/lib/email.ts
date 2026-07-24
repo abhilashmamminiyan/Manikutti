@@ -48,11 +48,29 @@ export async function sendInvitationEmail(to: string, familyName: string, invite
   }
 }
 
-export async function sendOTPEmail(to: string, otp: string) {
+export async function sendOTPEmail(to: string, otp: string, isMobile: boolean = false) {
+  const subject = isMobile
+    ? `🔑 Your Verification Code: ${otp}`
+    : `🔐 Your Admin Access Code: ${otp}`;
+
+  const headerTitle = isMobile
+    ? `✨ Manikutti Finance`
+    : `✨ Manikutti Finance Admin`;
+
+  const greeting = isMobile ? `Hello,` : `Hello Admin,`;
+
+  const bodyText = isMobile
+    ? `A request was made to sign into your Manikutti Finance account. Use the security verification code below to authorize your session:`
+    : `A login attempt was made to your dashboard ledger. Use the security verification code below to authorize this session:`;
+
+  const footerText = isMobile
+    ? `Automated System • Manikutti Personal & Family Finance`
+    : `Automated System • Secure Family Dashboard`;
+
   const mailOptions = {
     from: process.env.SMTP_FROM || `"Manikutti Finance" <${process.env.SMTP_USER}>`,
     to: to,
-    subject: `🔐 Your Admin Access Code: ${otp}`,
+    subject: subject,
     text: `Your 6-digit verification code is: ${otp}. It expires in 10 minutes.`,
     html: `
       <!DOCTYPE html>
@@ -60,7 +78,7 @@ export async function sendOTPEmail(to: string, otp: string) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Verification</title>
+        <title>${isMobile ? 'User Verification' : 'Admin Verification'}</title>
       </head>
       <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f9fafb; padding: 40px 20px;">
@@ -72,7 +90,7 @@ export async function sendOTPEmail(to: string, otp: string) {
                 <tr>
                   <td style="background-color: #006972; padding: 32px; text-align: center;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: -0.025em;">
-                      ✨ Manikutti Finance Admin
+                      ${headerTitle}
                     </h1>
                   </td>
                 </tr>
@@ -81,10 +99,10 @@ export async function sendOTPEmail(to: string, otp: string) {
                 <tr>
                   <td style="padding: 40px 32px;">
                     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #334155; font-weight: 500;">
-                      Hello Admin,
+                      ${greeting}
                     </p>
                     <p style="margin: 0 0 32px 0; font-size: 15px; line-height: 24px; color: #64748b;">
-                      A login attempt was made to your dashboard ledger. Use the security verification code below to authorize this session:
+                      ${bodyText}
                     </p>
 
                     <!-- OTP Display Box -->
@@ -111,7 +129,7 @@ export async function sendOTPEmail(to: string, otp: string) {
                 <tr>
                   <td style="background-color: #f8fafc; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;">
                     <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                      Automated System • Secure Family Dashboard
+                      ${footerText}
                     </p>
                   </td>
                 </tr>
