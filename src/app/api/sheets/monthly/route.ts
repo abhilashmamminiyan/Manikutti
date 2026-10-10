@@ -15,21 +15,34 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:J');
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth();
+
     const items = rows.slice(1)
-      .map((row, index) => ({
-        title: row[0],
-        amount: parseFloat(row[1]) || 0,
-        dueDay: parseInt(row[2]) || 1,
-        status: row[3],
-        familyCode: row[4],
-        adminEmail: row[5],
-        lastPaidDate: row[6] || '',
-        lastPaidBy: row[7] || '',
-        linkedLoan: row[8] || '',
-        assignedTo: row[9]?.toString().trim() || 'Family',
-        id: index + 1
-      }))
+      .map((row, index) => {
+        const lastPaidDate = row[6] || '';
+        let isPaidThisMonth = false;
+        if (lastPaidDate) {
+          const d = new Date(lastPaidDate);
+          if (!isNaN(d.getTime())) {
+            isPaidThisMonth = d.getUTCFullYear() === currentYear && d.getUTCMonth() === currentMonth;
+          }
+        }
+        return {
+          title: row[0],
+          amount: parseFloat(row[1]) || 0,
+          dueDay: parseInt(row[2]) || 1,
+          status: isPaidThisMonth ? 'Paid' : 'Unpaid',
+          familyCode: row[4],
+          adminEmail: row[5],
+          lastPaidDate: row[6] || '',
+          lastPaidBy: row[7] || '',
+          linkedLoan: row[8] || '',
+          assignedTo: row[9]?.toString().trim() || 'Family',
+          id: index + 1
+        };
+      })
       .filter(r => r.familyCode === familyCode);
 
     return NextResponse.json({ items });
