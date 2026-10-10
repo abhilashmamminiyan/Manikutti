@@ -143,7 +143,7 @@ export class GoogleSheetsService {
     if (type === 'Personal') {
       requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
+      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges'];
     } else if (type === 'Admin') {
       requiredSheets = ['User_Sheets'];
     }
@@ -187,9 +187,9 @@ export class GoogleSheetsService {
 
     let defaultSheets: string[] = [];
     if (type === 'Personal') {
-      defaultSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History'];
+      defaultSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
+      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges'];
     } else if (type === 'Admin') {
       defaultSheets = ['User_Sheets'];
     }

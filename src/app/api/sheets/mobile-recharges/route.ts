@@ -2,16 +2,41 @@ import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
 
+async function resolveSpreadsheet(service: GoogleSheetsService, request: Request, bodySheetType?: string) {
+  const url = new URL(request.url);
+  const requestedType = url.searchParams.get('sheetType') || bodySheetType;
+  const isPersonalRequested = requestedType?.toLowerCase() === 'personal';
+
+  if (isPersonalRequested) {
+    try {
+      const personalSheetId = await service.findOrCreateSheet('Personal');
+      if (personalSheetId) {
+        return { spreadsheetId: personalSheetId, type: 'Personal' as const };
+      }
+    } catch (err) {
+      console.warn('[MobileRecharges] Fallback to Family sheet as Personal sheet is unavailable:', err);
+    }
+  }
+
+  // Admin Dashboard recharges are family-scoped by default
+  const familySheetId = await service.findOrCreateSheet('Family');
+  return { spreadsheetId: familySheetId, type: 'Family' as const };
+}
+
 export async function GET(request: Request) {
   try {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const service = new GoogleSheetsService(email);
-    const spreadsheetId = await service.findOrCreateSheet('Personal');
+    const { spreadsheetId } = await resolveSpreadsheet(service, request);
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
     const rows = await service.getSheetData(spreadsheetId, 'Mobile_Recharges!A:K');
+    if (!rows || rows.length <= 1) {
+      return NextResponse.json({ items: [] });
+    }
+
     const items = rows.slice(1).map((row, index) => ({
       id: index + 1,
       name: row[0] || '',
@@ -30,7 +55,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ items });
   } catch (error: any) {
     console.error('Mobile Recharges GET Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Failed to fetch mobile recharges', details: error?.toString() },
+      { status: 500 }
+    );
   }
 }
 
@@ -39,6 +67,7 @@ export async function POST(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const body = await request.json();
     const {
       name,
       phoneNumber,
@@ -51,11 +80,12 @@ export async function POST(request: Request) {
       notifyExpiry,
       note,
       logExpense,
-    } = await request.json();
+      sheetType,
+    } = body;
 
     const service = new GoogleSheetsService(email);
-    const spreadsheetId = await service.findOrCreateSheet('Personal');
-    if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
+    const { spreadsheetId, type } = await resolveSpreadsheet(service, request, sheetType);
+    if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
 
     await service.appendRow(spreadsheetId, 'Mobile_Recharges', [
       name || '',
@@ -72,20 +102,43 @@ export async function POST(request: Request) {
     ]);
 
     if (logExpense && lastRechargedDate && planLastRecharged > 0) {
-      await service.appendRow(spreadsheetId, 'Personal_Expenses', [
-        lastRechargedDate,
-        planLastRecharged,
-        'Recharge',
-        `${name} (${operator} - ${phoneNumber}) Mobile Recharge`,
-        'TRUE',
-        'Expense',
-      ]);
+      if (type === 'Family') {
+        let familyCode = '';
+        try {
+          const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:B');
+          const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+          if (userRow) familyCode = userRow[0];
+        } catch (err) {
+          console.warn('Could not retrieve family code for expense logging:', err);
+        }
+
+        await service.appendRow(spreadsheetId, 'Family_Expenses', [
+          lastRechargedDate,
+          planLastRecharged,
+          'Recharge',
+          `${name} (${operator} - ${phoneNumber}) Mobile Recharge`,
+          email,
+          familyCode || 'FAM_MAIN',
+        ]);
+      } else {
+        await service.appendRow(spreadsheetId, 'Personal_Expenses', [
+          lastRechargedDate,
+          planLastRecharged,
+          'Recharge',
+          `${name} (${operator} - ${phoneNumber}) Mobile Recharge`,
+          'TRUE',
+          'Expense',
+        ]);
+      }
     }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Mobile Recharges POST Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Failed to save recharge', details: error?.toString() },
+      { status: 500 }
+    );
   }
 }
 
@@ -94,6 +147,7 @@ export async function PUT(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const body = await request.json();
     const {
       id,
       name,
@@ -107,13 +161,14 @@ export async function PUT(request: Request) {
       notifyExpiry,
       note,
       logExpense,
-    } = await request.json();
+      sheetType,
+    } = body;
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
     const service = new GoogleSheetsService(email);
-    const spreadsheetId = await service.findOrCreateSheet('Personal');
-    if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
+    const { spreadsheetId, type } = await resolveSpreadsheet(service, request, sheetType);
+    if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
 
     const rowIndex = id + 1; // 1-based index + header
     await service.updateRow(spreadsheetId, `Mobile_Recharges!A${rowIndex}:K${rowIndex}`, [
@@ -130,10 +185,44 @@ export async function PUT(request: Request) {
       logExpense ? 'TRUE' : 'FALSE',
     ]);
 
+    if (logExpense && lastRechargedDate && planLastRecharged > 0) {
+      if (type === 'Family') {
+        let familyCode = '';
+        try {
+          const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:B');
+          const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+          if (userRow) familyCode = userRow[0];
+        } catch (err) {
+          console.warn('Could not retrieve family code for expense logging:', err);
+        }
+
+        await service.appendRow(spreadsheetId, 'Family_Expenses', [
+          lastRechargedDate,
+          planLastRecharged,
+          'Recharge',
+          `${name} (${operator} - ${phoneNumber}) Mobile Recharge`,
+          email,
+          familyCode || 'FAM_MAIN',
+        ]);
+      } else {
+        await service.appendRow(spreadsheetId, 'Personal_Expenses', [
+          lastRechargedDate,
+          planLastRecharged,
+          'Recharge',
+          `${name} (${operator} - ${phoneNumber}) Mobile Recharge`,
+          'TRUE',
+          'Expense',
+        ]);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Mobile Recharges PUT Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Failed to update recharge', details: error?.toString() },
+      { status: 500 }
+    );
   }
 }
 
@@ -147,20 +236,18 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Valid ID required' }, { status: 400 });
 
     const service = new GoogleSheetsService(email);
-    const spreadsheetId = await service.findOrCreateSheet('Personal');
-    if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
+    const { spreadsheetId } = await resolveSpreadsheet(service, request);
+    if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Mobile_Recharges!A:K');
-    const filteredRows = rows.filter((_, index) => index !== id);
-
-    await service.clearSheet(spreadsheetId, 'Mobile_Recharges!A:K');
-    if (filteredRows.length > 0) {
-      await service.updateRow(spreadsheetId, `Mobile_Recharges!A1:K${filteredRows.length}`, filteredRows);
-    }
+    const rowIndex = id + 1; // 1-based index + header
+    await service.deleteRow(spreadsheetId, 'Mobile_Recharges', rowIndex);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Mobile Recharges DELETE Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Failed to delete recharge', details: error?.toString() },
+      { status: 500 }
+    );
   }
 }
