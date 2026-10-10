@@ -97,6 +97,7 @@ export const RechargesTab: React.FC = () => {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MobileRechargeItem | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Form Fields
   const [name, setName] = useState('');
@@ -117,6 +118,7 @@ export const RechargesTab: React.FC = () => {
   const [renewDays, setRenewDays] = useState(28);
   const [renewLogExpense, setRenewLogExpense] = useState(false);
   const [renewLoading, setRenewLoading] = useState(false);
+  const [renewError, setRenewError] = useState('');
 
   useEffect(() => {
     fetchRecharges();
@@ -127,8 +129,8 @@ export const RechargesTab: React.FC = () => {
     setError('');
     try {
       const res = await fetch('/api/sheets/mobile-recharges');
-      if (!res.ok) throw new Error('Failed to load mobile recharges');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to load mobile recharges');
       setRecharges(data.items || []);
     } catch (err: any) {
       setError(err.message || 'Error fetching recharges');
@@ -139,6 +141,7 @@ export const RechargesTab: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingItem(null);
+    setFormError('');
     setName('');
     setPhoneNumber('');
     setOperator('Jio');
@@ -158,6 +161,7 @@ export const RechargesTab: React.FC = () => {
 
   const handleOpenEdit = (item: MobileRechargeItem) => {
     setEditingItem(item);
+    setFormError('');
     setName(item.name);
     setPhoneNumber(item.phoneNumber);
     setOperator(item.operator || 'Jio');
@@ -173,8 +177,9 @@ export const RechargesTab: React.FC = () => {
   };
 
   const handleSaveForm = async () => {
+    setFormError('');
     if (!name.trim() || !phoneNumber.trim()) {
-      alert('Please fill in Name and Phone Number');
+      setFormError('Please fill in Name and Phone Number');
       return;
     }
     setFormLoading(true);
@@ -201,11 +206,12 @@ export const RechargesTab: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error('Failed to save recharge');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save recharge');
       setFormDialogOpen(false);
       fetchRecharges();
     } catch (err: any) {
-      alert(err.message || 'Error saving recharge');
+      setFormError(err.message || 'Error saving recharge');
     } finally {
       setFormLoading(false);
     }
@@ -217,7 +223,8 @@ export const RechargesTab: React.FC = () => {
       const res = await fetch(`/api/sheets/mobile-recharges?id=${id}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('Failed to delete recharge');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to delete recharge');
       fetchRecharges();
     } catch (err: any) {
       alert(err.message || 'Error deleting recharge');
@@ -226,6 +233,7 @@ export const RechargesTab: React.FC = () => {
 
   const handleOpenQuickRenew = (item: MobileRechargeItem) => {
     setRenewItem(item);
+    setRenewError('');
     setRenewDays(28);
     setRenewLogExpense(item.logExpense || false);
     setRenewDialogOpen(true);
@@ -234,6 +242,7 @@ export const RechargesTab: React.FC = () => {
   const handleConfirmRenew = async () => {
     if (!renewItem) return;
     setRenewLoading(true);
+    setRenewError('');
 
     const currentExpiry = renewItem.validityTill ? new Date(renewItem.validityTill) : new Date();
     const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
@@ -256,11 +265,12 @@ export const RechargesTab: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error('Failed to renew recharge');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to renew recharge');
       setRenewDialogOpen(false);
       fetchRecharges();
     } catch (err: any) {
-      alert(err.message || 'Error renewing recharge');
+      setRenewError(err.message || 'Error renewing recharge');
     } finally {
       setRenewLoading(false);
     }
@@ -319,7 +329,7 @@ export const RechargesTab: React.FC = () => {
 
       {/* Metrics Row */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
               Active SIMs
@@ -329,7 +339,7 @@ export const RechargesTab: React.FC = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
               Expiring Soon (≤ 3 Days)
@@ -339,7 +349,7 @@ export const RechargesTab: React.FC = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
               Total Recharges Burn
@@ -449,7 +459,7 @@ export const RechargesTab: React.FC = () => {
                       <TableCell sx={{ fontWeight: 'bold' }}>
                         {row.name}
                         {row.note && (
-                          <Typography variant="caption" display="block" color="textSecondary">
+                          <Typography variant="caption" sx={{ display: 'block' }} color="textSecondary">
                             {row.note}
                           </Typography>
                         )}
@@ -474,7 +484,7 @@ export const RechargesTab: React.FC = () => {
                           ₹{row.planLastRecharged}
                         </Typography>
                         {row.planDescription && (
-                          <Typography variant="caption" color="textSecondary" display="block">
+                          <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
                             {row.planDescription}
                           </Typography>
                         )}
@@ -549,6 +559,11 @@ export const RechargesTab: React.FC = () => {
           {editingItem ? 'Edit Mobile Recharge' : 'Add Mobile Recharge'}
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
+          {formError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {formError}
+            </Alert>
+          )}
           <TextField
             label="Contact / SIM Name"
             placeholder="e.g. Self Jio, Dad, Mom"
@@ -578,7 +593,7 @@ export const RechargesTab: React.FC = () => {
             </Select>
           </FormControl>
           <Grid container spacing={2}>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 label="Plan Amount (₹)"
                 type="number"
@@ -587,7 +602,7 @@ export const RechargesTab: React.FC = () => {
                 onChange={e => setPlanAmount(e.target.value)}
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 label="Plan Details"
                 placeholder="e.g. 1.5GB/day Unlimited"
@@ -604,7 +619,7 @@ export const RechargesTab: React.FC = () => {
               label="Validity Till Date"
               type="date"
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               value={validityTill}
               onChange={e => setValidityTill(e.target.value)}
             />
@@ -630,7 +645,7 @@ export const RechargesTab: React.FC = () => {
             label="Last Recharged Date"
             type="date"
             fullWidth
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             value={lastRechargedDate}
             onChange={e => setLastRechargedDate(e.target.value)}
           />
@@ -671,7 +686,7 @@ export const RechargesTab: React.FC = () => {
                 color="primary"
               />
             }
-            label="Record in Personal Expenses sheet"
+            label="Record in Expenses ledger"
           />
 
           <TextField
@@ -705,6 +720,11 @@ export const RechargesTab: React.FC = () => {
           Quick Renew: {renewItem?.name}
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {renewError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {renewError}
+            </Alert>
+          )}
           <Typography variant="body2" color="textSecondary">
             Extend validity from current expiry date or today:
           </Typography>
@@ -732,7 +752,7 @@ export const RechargesTab: React.FC = () => {
                 color="primary"
               />
             }
-            label="Record renewal in Personal Expenses"
+            label="Record renewal in Expenses ledger"
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
