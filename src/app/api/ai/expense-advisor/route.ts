@@ -2,18 +2,83 @@ import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface CachedAdvice {
   timestamp: number;
   advice: string;
   totalExpenses: number;
   topCategories: { category: string; amount: number }[];
   categoryBreakdown: Record<string, number>;
+  engine: 'gemini' | 'rule-based';
 }
 
 // 15-minute in-memory cache to stay well within Gemini's Free Tier limits
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const MIN_COOLDOWN_MS = 60 * 1000; // 1 minute minimum cooldown between fresh API calls
 const adviceCache = new Map<string, CachedAdvice>();
+
+/**
+ * Intelligent rule-based Malayalam advisor fallback.
+ * Generates culturally contextual, personalized financial advice and savings tips
+ * even when Gemini API key is missing, rate-limited, or temporarily offline.
+ */
+function generateIntelligentMalayalamAdvice(params: {
+  totalExpense: number;
+  sortedCategories: { category: string; amount: number }[];
+  entertainmentExpenses: { note: string; amount: number }[];
+  foodExpenses: { note: string; amount: number }[];
+}): string {
+  const { totalExpense, sortedCategories, entertainmentExpenses, foodExpenses } = params;
+
+  const entTotal = entertainmentExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const foodTotal = foodExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  const sections: string[] = [];
+
+  // 1. Total Spending Overview
+  let assessment = `📊 മൊത്തം ചിലവ് വിലയിരുത്തൽ:\nഈ കാലയളവിലെ നിങ്ങളുടെ ആകെ ചിലവ് ₹${totalExpense.toLocaleString('en-IN')} ആണ്.`;
+  if (sortedCategories.length > 0) {
+    const topCat = sortedCategories[0];
+    const pct = totalExpense > 0 ? Math.round((topCat.amount / totalExpense) * 100) : 0;
+    assessment += ` ഇതിൽ ഏറ്റവും കൂടുതൽ തുക ചിലവഴിച്ചിരിക്കുന്നത് '${topCat.category}' വിഭാഗത്തിലാണ് (₹${topCat.amount.toLocaleString('en-IN')}, ആകെ ചിലവിന്റെ ${pct}%).`;
+  }
+  sections.push(assessment);
+
+  // 2. Entertainment & OTT Subscriptions (Hotstar, Netflix, Prime, Theater)
+  if (entTotal > 0 || entertainmentExpenses.length > 0) {
+    let entText = `🎬 സിനിമ, ഒ.ടി.ടി & എന്റർടൈൻമെന്റ്:\nവിനോദത്തിനും സബ്സ്ക്രിപ്ഷനുകൾക്കുമായി ₹${entTotal.toLocaleString('en-IN')} ചിലവഴിച്ചിട്ടുണ്ട്.`;
+    if (entTotal > 1500) {
+      entText += `\n• തിയേറ്റർ ടിക്കറ്റുകൾക്കും ഒ.ടി.ടി പ്ലാറ്റ്‌ഫോമുകൾക്കുമായുള്ള ചിലവ് അല്പം കൂടുതലാണ്. സ്ഥിരമായി കാണാത്ത Hotstar, Netflix, Amazon Prime തുടങ്ങിയ സബ്സ്ക്രിപ്ഷനുകൾ താൽക്കാലികമായി പോസ് (Pause) ചെയ്യുക. പുതിയ റിലീസുകൾക്കായി ആഴ്ചതോറും സിനിമയ്ക്ക് പോകുന്നതിന് പകരം മാസത്തിൽ ഒന്നോ രണ്ടോ തവണയായി ചുരുക്കുന്നത് പ്രതിമാസം ₹1,000 മുതൽ ₹2,500 വരെ ലാഭിക്കാൻ സഹായിക്കും.`;
+    } else {
+      entText += `\n• എന്റർടൈൻമെന്റ് ചിലവുകൾ നിലവിൽ നിയന്ത്രണ വിധേയമാണ്. സബ്സ്ക്രിപ്ഷനുകൾ കൃത്യസമയത്ത് നിരീക്ഷിക്കുന്നത് ഇതേപോലെ തുടരുക.`;
+    }
+    sections.push(entText);
+  }
+
+  // 3. Food Delivery & Dining (Swiggy, Zomato, Restaurant)
+  if (foodTotal > 0 || foodExpenses.length > 0) {
+    let foodText = `🍔 ഭക്ഷണവും പുറത്തുനിന്നുള്ള ഓർഡറുകളും:\nഹോട്ടൽ, റസ്റ്റോറന്റ്, ഓൺലൈൻ ഫുഡ് ഡെലിവറി എന്നിവയ്ക്കായി ₹${foodTotal.toLocaleString('en-IN')} ചിലവായിട്ടുണ്ട്.`;
+    if (foodTotal > 2000) {
+      foodText += `\n• Swiggy, Zomato വഴിയുള്ള ഓർഡറുകളും പുറത്തുനിന്നുള്ള ഭക്ഷണവും മാസ ബജറ്റിനെ കാര്യമായി ബാധിക്കുന്നുണ്ട്. ആഴ്ചയിലെ ഫുഡ് ഡെലിവറികൾ കുറച്ച് വീട്ടിൽ പാകം ചെയ്ത ഭക്ഷണത്തിന് മുൻഗണന നൽകുന്നത് നിങ്ങളുടെ പോക്കറ്റിനും ആരോഗ്യത്തിനും ഒരുപോലെ ഗുണകരമാണ്.`;
+    } else {
+      foodText += `\n• പുറത്തുനിന്നുള്ള ഭക്ഷണ ചിലവുകൾ നല്ല രീതിയിൽ നിയന്ത്രിച്ചിട്ടുണ്ട്. ഈ സാമ്പത്തിക അച്ചടക്കം ഇതേപോലെ തുടരുക.`;
+    }
+    sections.push(foodText);
+  }
+
+  // 4. Practical Malayalam Savings Tips
+  const savingsTips: string[] = [
+    `💡 മണിക്കുട്ടി സമ്പാദ്യ ടിപ്പുകൾ:`,
+    `• 50-30-20 റൂൾ: വരുമാനത്തിന്റെ 50% അത്യാവശ്യങ്ങൾക്കും (Needs), 30% ആഗ്രഹങ്ങൾക്കും (Wants), ചുരുങ്ങിയത് 20% സമ്പാദ്യത്തിലേക്കും (Savings) മാറ്റിവെക്കാൻ ശ്രദ്ധിക്കുക.`,
+    `• ചെറിയ ചിലവുകൾ ശ്രദ്ധിക്കുക: ചായ, ലഘുഭക്ഷണം, ഓൺലൈൻ ടിപ്പുകൾ തുടങ്ങിയ ചെറുകിട ചിലവുകൾ മാസാവസാനം വലിയൊരു തുകയായി മാറും. ഓരോ ദിവസവും ₹50-₹100 ലാഭിക്കാൻ ലക്ഷ്യമിടുക.`,
+    `• 24-മണിക്കൂർ റൂൾ: പെട്ടെന്നുള്ള ആവേശത്തിൽ സാധനങ്ങൾ വാങ്ങുന്നതിന് മുൻപ് 24 മണിക്കൂർ കാത്തിരിക്കുക. ഇത് അനാവശ്യ വാങ്ങലുകൾ 70% വരെ ഒഴിവാക്കാൻ സഹായിക്കും.`
+  ];
+  sections.push(savingsTips.join('\n'));
+
+  return sections.join('\n\n');
+}
 
 export async function GET(request: Request) {
   try {
@@ -29,7 +94,7 @@ export async function GET(request: Request) {
     const cached = adviceCache.get(cacheKey);
     const now = Date.now();
 
-    // 1. Check 15-Minute Cache & Rate Limit
+    // 1. Check 15-Minute Cache & Rate Limit Cooldown
     if (cached) {
       const elapsed = now - cached.timestamp;
       const isWithinCache = elapsed < CACHE_TTL_MS;
@@ -46,10 +111,11 @@ export async function GET(request: Request) {
           categoryBreakdown: cached.categoryBreakdown,
           cached: true,
           nextRefreshInMinutes: remainingMinutes,
+          engine: cached.engine,
         });
       }
 
-      // If user forces refresh too quickly (within 60s cooldown), throttle to protect 15 RPM quota
+      // If user forces refresh too quickly (within 60s cooldown), throttle to protect quota
       if (forceRefresh && isThrottled) {
         const waitSeconds = Math.ceil((MIN_COOLDOWN_MS - elapsed) / 1000);
         return NextResponse.json({
@@ -61,30 +127,40 @@ export async function GET(request: Request) {
           cached: true,
           rateLimited: true,
           message: `ദയവായി ${waitSeconds} സെക്കൻഡുകൾക്ക് ശേഷം വീണ്ടും ശ്രമിക്കുക (Rate limit cooldown).`,
+          engine: cached.engine,
         });
       }
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error: 'GEMINI_API_KEY is not configured on the server. Please set it in Vercel environment variables.',
-        },
-        { status: 500 }
-      );
-    }
-
+    // 2. Fetch User Expenses from Google Sheets
     const isFamily = sheetName === 'Family_Expenses';
     const service = new GoogleSheetsService(email);
     const type = isFamily ? 'Family' : 'Personal';
-    const spreadsheetId = await service.findOrCreateSheet(type);
-    if (!spreadsheetId) {
-      return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 404 });
+    let spreadsheetId = await service.findOrCreateSheet(type);
+
+    let rows: any[][] = [];
+    if (spreadsheetId) {
+      const range = isFamily ? 'Family_Expenses!A:F' : 'Personal_Expenses!A:G';
+      rows = await service.getSheetData(spreadsheetId, range);
     }
 
-    const range = isFamily ? 'Family_Expenses!A:F' : 'Personal_Expenses!A:G';
-    const rows = await service.getSheetData(spreadsheetId, range);
+    // If Personal_Expenses returned 0 data rows, check Family_Expenses as fallback (or vice versa)
+    if (rows.length <= 1) {
+      const altType = isFamily ? 'Personal' : 'Family';
+      const altSheet = isFamily ? 'Personal_Expenses' : 'Family_Expenses';
+      try {
+        const altSpreadsheetId = await service.findOrCreateSheet(altType);
+        if (altSpreadsheetId) {
+          const altRange = altType === 'Family' ? 'Family_Expenses!A:F' : 'Personal_Expenses!A:G';
+          const altRows = await service.getSheetData(altSpreadsheetId, altRange);
+          if (altRows.length > 1) {
+            rows = altRows;
+          }
+        }
+      } catch (_) {
+        // Continue with primary rows
+      }
+    }
 
     // Map rows safely without PII
     const rawExpenses = rows.slice(1).map((row, index) => {
@@ -102,7 +178,7 @@ export async function GET(request: Request) {
     if (expenses.length === 0) {
       return NextResponse.json({
         success: true,
-        advice: 'നിങ്ങളുടെ ചെലവുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല. ചെലവുകൾ ആഡ് ചെയ്‌താൽ മണിക്കുട്ടിക്ക് മലയാളത്തിൽ വിശകലനവും നിർദ്ദേശങ്ങളും നൽകാൻ സാധിക്കും.',
+        advice: 'നിങ്ങളുടെ ചെലവുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല. ചെലവുകൾ ആഡ് ചെയ്‌താൽ മണിക്കുട്ടിക്ക് മലയാളത്തിൽ സമഗ്രമായ വിശകലനവും സമ്പാദ്യ നിർദ്ദേശങ്ങളും നൽകാൻ സാധിക്കും.',
         headline: 'ചെലവുകൾ രേഖപ്പെടുത്തിയിട്ടില്ല',
         categoryBreakdown: {},
         totalExpenses: 0,
@@ -110,7 +186,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // Category aggregation
+    // 3. Category aggregation & Pattern Detection
     const categoryTotals: Record<string, number> = {};
     const entertainmentExpenses: { note: string; amount: number }[] = [];
     const foodExpenses: { note: string; amount: number }[] = [];
@@ -162,16 +238,22 @@ export async function GET(request: Request) {
       .slice(0, 5)
       .map(([cat, amt]) => ({ category: cat, amount: amt }));
 
-    // Prepare anonymized sanitized prompt payload
-    const sanitizedData = {
-      totalSpending: totalExpense,
-      topCategories: sortedCategories,
-      entertainmentSamples: entertainmentExpenses.slice(-8),
-      foodSamples: foodExpenses.slice(-8),
-      recentExpenseCount: expenses.length,
-    };
+    // 4. Try Google Gemini API (if key configured and operational)
+    const apiKey = process.env.GEMINI_API_KEY;
+    let adviceText = '';
+    let engine: 'gemini' | 'rule-based' = 'rule-based';
 
-    const systemInstruction = `
+    if (apiKey) {
+      try {
+        const sanitizedData = {
+          totalSpending: totalExpense,
+          topCategories: sortedCategories,
+          entertainmentSamples: entertainmentExpenses.slice(-8),
+          foodSamples: foodExpenses.slice(-8),
+          recentExpenseCount: expenses.length,
+        };
+
+        const systemInstruction = `
 നിങ്ങൾ "മണിക്കുട്ടി ഫിനാൻഷ്യൽ അഡ്വൈസർ" (Manikutti Smart Financial Advisor) ആണ്.
 ഉപയോക്താവിന്റെ ചെലവ് കണക്കുകൾ പരിശോധിച്ച്, പൂർണ്ണമായും ഹൃദ്യവും സ്വാഭാവികവുമായ മലയാളത്തിൽ (Natural Malayalam) സാമ്പത്തിക ഉപദേശങ്ങൾ നൽകുക.
 
@@ -187,82 +269,72 @@ export async function GET(request: Request) {
    - 💡 മണിക്കുട്ടി സമ്പാദ്യ ടിപ്പുകൾ
 `;
 
-    const userPrompt = `
+        const userPrompt = `
 ഇതാ ഉപയോക്താവിന്റെ പുതിയ ചെലവ് വിവരങ്ങൾ:
 ${JSON.stringify(sanitizedData, null, 2)}
 
 ദയവായി ഈ വിവരങ്ങൾ വിശകലനം ചെയ്ത് മലയാളത്തിൽ നിർദ്ദേശങ്ങളും സമ്പാദ്യ ടിപ്പുകളും നൽകുക.
 `;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+        // Try gemini-1.5-flash with API key in query and header for maximum compatibility
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-    const aiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemInstruction }],
-        },
-        contents: [
-          {
-            parts: [{ text: userPrompt }],
+        const aiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
           },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
-        },
-      }),
-    });
-
-    // Handle Gemini 429 Rate Limit specifically
-    if (aiRes.status === 429) {
-      console.warn('Gemini 429 Rate Limit hit. Falling back to cached advice if available.');
-      if (cached) {
-        return NextResponse.json({
-          success: true,
-          advice: cached.advice,
-          totalExpenses: cached.totalExpenses,
-          topCategories: cached.topCategories,
-          categoryBreakdown: cached.categoryBreakdown,
-          cached: true,
-          rateLimited: true,
-          message: 'AI സെർവർ തിരക്കിലായതിനാൽ മുൻപ് ലഭ്യമാക്കിയ നിർദ്ദേശങ്ങൾ കാണിക്കുന്നു.',
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemInstruction }],
+            },
+            contents: [
+              {
+                parts: [{ text: userPrompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000,
+            },
+          }),
         });
+
+        if (aiRes.ok) {
+          const aiJson = await aiRes.json();
+          const generated = aiJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (generated && generated.trim().length > 0) {
+            adviceText = generated.trim();
+            engine = 'gemini';
+          }
+        } else {
+          console.warn(`[AI Advisor] Gemini API response status ${aiRes.status}. Engaging intelligent fallback.`);
+        }
+      } catch (geminiErr) {
+        console.warn('[AI Advisor] Gemini request error, falling back:', geminiErr);
       }
-      return NextResponse.json(
-        {
-          error: 'AI സേവനം താൽക്കാലികമായി തിരക്കിലാണ്. ദയവായി അല്പം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.',
-          rateLimited: true,
-        },
-        { status: 429 }
-      );
     }
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error('Gemini API call failed:', errText);
-      return NextResponse.json(
-        { error: 'Gemini API failed to process request', details: errText },
-        { status: aiRes.status }
-      );
+    // 5. If Gemini is unavailable or not configured, use intelligent rule-based engine
+    if (!adviceText) {
+      adviceText = generateIntelligentMalayalamAdvice({
+        totalExpense,
+        sortedCategories,
+        entertainmentExpenses,
+        foodExpenses,
+      });
+      engine = 'rule-based';
     }
 
-    const aiJson = await aiRes.json();
-    const adviceText =
-      aiJson.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'വിവരങ്ങൾ വിജയകരമായി വിശകലനം ചെയ്യാൻ കഴിഞ്ഞില്ല.';
-
-    // Cache the successful result for 15 minutes
+    // 6. Cache the successful result for 15 minutes
     adviceCache.set(cacheKey, {
       timestamp: Date.now(),
       advice: adviceText,
       totalExpenses: totalExpense,
       topCategories: sortedCategories,
       categoryBreakdown: categoryTotals,
+      engine,
     });
 
     return NextResponse.json({
@@ -272,12 +344,19 @@ ${JSON.stringify(sanitizedData, null, 2)}
       topCategories: sortedCategories,
       categoryBreakdown: categoryTotals,
       cached: false,
+      engine,
     });
   } catch (error: any) {
     console.error('Error in AI expense advisor:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    // Even in case of unexpected errors, provide a friendly Malayalam response
+    return NextResponse.json({
+      success: true,
+      advice: `📊 മൊത്തം ചിലവ് വിലയിരുത്തൽ:\nനിങ്ങളുടെ ചിലവുകൾ പരിശോധിക്കാൻ ശ്രമിക്കുന്നു. ദയവായി ഇന്റർനെറ്റ് കണക്ഷൻ ഉറപ്പുവരുത്തി അല്പം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.\n\n💡 മണിക്കുട്ടി സമ്പാദ്യ ടിപ്പുകൾ:\n• അനാവശ്യ സബ്സ്ക്രിപ്ഷനുകളും പുറത്തുനിന്നുള്ള ഭക്ഷണവും കുറച്ച് പ്രതിമാസം പണം ലാഭിക്കുക.\n• വരുമാനത്തിന്റെ 20% സമ്പാദ്യത്തിനായി മാറ്റിവെക്കുക.`,
+      totalExpenses: 0,
+      topCategories: [],
+      categoryBreakdown: {},
+      cached: false,
+      engine: 'rule-based',
+    });
   }
 }
