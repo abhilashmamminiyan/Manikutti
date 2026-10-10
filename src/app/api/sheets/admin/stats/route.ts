@@ -104,20 +104,33 @@ export async function GET(request: Request) {
       .filter(r => r.familyCode === familyCode);
 
     // 6. Map and filter monthly dues
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth();
     const dues = monthlyRows.slice(1)
-      .map((r, index) => ({
-        title: r[0],
-        amount: parseFloat(r[1]) || 0,
-        dueDay: parseInt(r[2]) || 1,
-        status: r[3],
-        familyCode: r[4],
-        adminEmail: r[5],
-        lastPaidDate: r[6] || '',
-        lastPaidBy: r[7] || '',
-        linkedLoan: r[8] || '',
-        assignedTo: r[9] || 'Family',
-        id: index + 1
-      }))
+      .map((r, index) => {
+        const lastPaidDate = r[6] || '';
+        let isPaidThisMonth = false;
+        if (lastPaidDate) {
+          const d = new Date(lastPaidDate);
+          if (!isNaN(d.getTime())) {
+            isPaidThisMonth = d.getUTCFullYear() === currentYear && d.getUTCMonth() === currentMonth;
+          }
+        }
+        return {
+          title: r[0],
+          amount: parseFloat(r[1]) || 0,
+          dueDay: parseInt(r[2]) || 1,
+          status: isPaidThisMonth ? 'Paid' : 'Unpaid',
+          familyCode: r[4],
+          adminEmail: r[5],
+          lastPaidDate: r[6] || '',
+          lastPaidBy: r[7] || '',
+          linkedLoan: r[8] || '',
+          assignedTo: r[9] || 'Family',
+          id: index + 1
+        };
+      })
       .filter(r => r.familyCode === familyCode);
 
     // 7. Map and filter loans
