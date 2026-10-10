@@ -30,6 +30,7 @@ import {
   Notifications as NotificationsIcon,
   AccountBalance as AccountBalanceIcon,
   Person as PersonIcon,
+  PhoneAndroid as PhoneAndroidIcon,
   Menu as MenuIcon
 } from '@mui/icons-material';
 
@@ -38,6 +39,7 @@ import { OverviewTab } from '../components/admin/OverviewTab';
 import { ExpensesTab } from '../components/admin/ExpensesTab';
 import { MembersTab } from '../components/admin/MembersTab';
 import { LedgerTab } from '../components/admin/LedgerTab';
+import { RechargesTab } from '../components/admin/RechargesTab';
 import { AdminDialogs } from '../components/admin/AdminDialogs';
 
 const drawerWidth = 260;
@@ -241,6 +243,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
                 { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
                 { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+                { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
                 { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
                 { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
               ].map((tab) => {
@@ -323,6 +326,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
                 { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
                 { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+                { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
                 { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
                 { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
               ].map((tab) => {
@@ -421,6 +425,10 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 handleOpenEditLoan={handleOpenEditLoan}
                 handleDeleteLoan={handleDeleteLoan}
               />
+            )}
+
+            {activeTab === 'recharges' && (
+              <RechargesTab />
             )}
           </>
         )}

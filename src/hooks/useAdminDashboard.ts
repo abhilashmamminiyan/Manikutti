@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react';
 
 export function useAdminDashboard() {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'users' | 'loans'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'users' | 'loans' | 'recharges'>('overview');
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState<any>(null);
   const [error, setError] = useState('');
