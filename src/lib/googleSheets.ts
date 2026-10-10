@@ -141,7 +141,7 @@ export class GoogleSheetsService {
     
     let requiredSheets: string[] = [];
     if (type === 'Personal') {
-      requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History'];
+      requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
       requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger'];
     } else if (type === 'Admin') {
@@ -169,6 +169,7 @@ export class GoogleSheetsService {
     const headers: Record<string, string[][]> = {
       'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type']],
       'Personal_Utilities': [['Title', 'Amount', 'Validity', 'Status', 'Last Paid Date', 'Next Due Date', 'Note', 'Log Expense']],
+      'Mobile_Recharges': [['Name', 'Phone Number', 'Operator', 'Plan Last Recharged', 'Plan Description', 'Validity Till', 'Last Recharged Date', 'Reminder Days Before', 'Notify Expiry', 'Note', 'Log Expense']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
       'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
