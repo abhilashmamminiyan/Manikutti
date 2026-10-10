@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface CachedAdvice {
   timestamp: number;
   advice: string;
