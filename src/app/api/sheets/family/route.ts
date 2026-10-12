@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ family: null });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
+    const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:G');
     
     if (code) {
       // Find family by code
@@ -29,13 +29,19 @@ export async function GET(request: Request) {
     if (!userFamily) return NextResponse.json({ family: null });
 
     const familyCode = userFamily[0];
-    const members = rows.slice(1).filter(r => r[0] === familyCode).map(r => ({
-      email: r[1],
-      role: r[2],
-      joinedDate: r[3],
-      nickname: r[4] || '',
-      monthlyIncome: parseFloat(r[5]) || 0
-    }));
+    const members = rows.slice(1).filter(r => r[0] === familyCode).map(r => {
+      const baseSalary = parseFloat(r[5]) || 0;
+      const currentSalary = r[6] !== undefined && r[6] !== '' ? parseFloat(r[6]) : baseSalary;
+      return {
+        email: r[1],
+        role: r[2],
+        joinedDate: r[3],
+        nickname: r[4] || '',
+        baseSalary,
+        monthlyIncome: currentSalary,
+        currentSalary
+      };
+    });
 
     return NextResponse.json({ familyCode, members, role: userFamily[2] });
 
@@ -51,7 +57,7 @@ export async function POST(request: Request) {
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome, personalSpreadsheetId } = body;
+    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome, baseSalary, currentSalary, personalSpreadsheetId } = body;
     const service = new GoogleSheetsService(email);
 
     if (action === 'create') {
@@ -185,17 +191,34 @@ export async function POST(request: Request) {
       const spreadsheetId = await service.findOrCreateSheet('Family');
       if (!spreadsheetId) return NextResponse.json({ error: 'Family spreadsheet not found' }, { status: 500 });
 
-      const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
+      const rows = await service.getSheetData(spreadsheetId, 'Family_Members!A:G');
       const rowIndex = rows.findIndex(r => r[1]?.toLowerCase() === targetEmail?.toLowerCase());
       if (rowIndex === -1) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
 
-      // Ensure row has enough columns
-      while (rows[rowIndex].length < 6) rows[rowIndex].push('');
-      
-      rows[rowIndex][4] = nickname || '';
-      rows[rowIndex][5] = (monthlyIncome || 0).toString();
+      // Check permissions: Admin or user updating their own profile
+      const userRow = rows.slice(1).find(r => r[1]?.toLowerCase() === email.toLowerCase());
+      const isAdmin = userRow && userRow[2] === 'Admin';
+      const isSelf = email.toLowerCase() === targetEmail?.toLowerCase();
+      if (!isAdmin && !isSelf) {
+        return NextResponse.json({ error: 'Forbidden: You can only edit your own details' }, { status: 403 });
+      }
 
-      await service.updateSheetData(spreadsheetId, 'Family_Members!A:F', rows);
+      // Ensure row has enough columns (up to index 6 for Col G)
+      while (rows[rowIndex].length < 7) rows[rowIndex].push('');
+      
+      if (nickname !== undefined) rows[rowIndex][4] = nickname || '';
+      if (baseSalary !== undefined) rows[rowIndex][5] = (baseSalary || 0).toString();
+
+      const salaryVal = currentSalary !== undefined ? currentSalary : monthlyIncome;
+      if (salaryVal !== undefined) {
+        rows[rowIndex][6] = (salaryVal || 0).toString();
+        // If Base Salary column was empty or 0, initialize it with salaryVal as baseline
+        if (!rows[rowIndex][5] || rows[rowIndex][5] === '0' || rows[rowIndex][5] === '') {
+          rows[rowIndex][5] = (salaryVal || 0).toString();
+        }
+      }
+
+      await service.updateSheetData(spreadsheetId, 'Family_Members!A:G', rows);
       return NextResponse.json({ success: true });
     }
 

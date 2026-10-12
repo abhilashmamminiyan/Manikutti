@@ -43,6 +43,8 @@ export default function FamilyDashboard() {
   const [editingMember, setEditingMember] = useState<any>(null);
   const [memberNickname, setMemberNickname] = useState('');
   const [memberIncome, setMemberIncome] = useState('');
+  const [memberBaseSalary, setMemberBaseSalary] = useState('');
+  const [updateBaseSalaryCheck, setUpdateBaseSalaryCheck] = useState(false);
   const [isUpdatingMember, setIsUpdatingMember] = useState(false);
   
   const [newLoanName, setNewLoanName] = useState('');
@@ -115,6 +117,8 @@ export default function FamilyDashboard() {
     if (!editingMember) return;
     setIsUpdatingMember(true);
     try {
+      const parsedSalary = parseFloat(memberIncome) || 0;
+      const parsedBase = updateBaseSalaryCheck ? parsedSalary : (parseFloat(memberBaseSalary) || parsedSalary);
       const res = await fetch('/api/sheets/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,7 +126,9 @@ export default function FamilyDashboard() {
           action: 'updateMember', 
           targetEmail: editingMember.email,
           nickname: memberNickname,
-          monthlyIncome: parseFloat(memberIncome) || 0
+          currentSalary: parsedSalary,
+          baseSalary: parsedBase,
+          monthlyIncome: parsedSalary
         }),
       });
       if (res.ok) { setEditingMember(null); fetchFamilyStatus(); }
@@ -213,6 +219,34 @@ export default function FamilyDashboard() {
     ].filter(d => d.value > 0);
   }, [data.expenses, data.members, data.monthly]);
 
+  const constantEmiDues = useMemo(() => {
+    const loanNames = new Set((loans || []).map((l: any) => l.name?.toLowerCase()));
+    const activeLoansEmi = (loans || [])
+      .filter((l: any) => l.status === 'Active' || !l.status)
+      .reduce((sum: number, l: any) => sum + (l.monthlyEMI || 0), 0);
+
+    const standaloneEmi = (data.monthly || [])
+      .filter((item: any) => {
+        const titleLower = (item.title || '').toLowerCase();
+        const linked = (item.linkedLoan || '').toLowerCase().trim();
+        const isEmi = titleLower.includes('emi') || linked.length > 0;
+        const cleanTitle = titleLower.replace('emi:', '').trim();
+        const isCountedInLoans = loanNames.has(cleanTitle) || (linked && loanNames.has(linked));
+        return isEmi && !isCountedInLoans;
+      })
+      .reduce((sum: number, item: any) => sum + item.amount, 0);
+
+    return activeLoansEmi + standaloneEmi;
+  }, [loans, data.monthly]);
+
+  const baseSalaryTotal = useMemo(() => {
+    return (data.members || []).reduce((sum: number, m: any) => sum + (m.baseSalary || m.monthlyIncome || 0), 0);
+  }, [data.members]);
+
+  const currentSalaryTotal = useMemo(() => {
+    return (data.members || []).reduce((sum: number, m: any) => sum + (m.currentSalary || m.monthlyIncome || 0), 0);
+  }, [data.members]);
+
   if (isLoading) return <LoadingScreen />;
 
   return (
@@ -269,6 +303,60 @@ export default function FamilyDashboard() {
           ))}
         </div>
       </section>
+
+      {/* Dynamic Salary & Constant Family EMI Highlight Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="bg-white dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block mb-1">Family Salary Income</span>
+              <h4 className="text-2xl font-black dark:text-white">₹{currentSalaryTotal.toLocaleString()}</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                Base Salary: ₹{baseSalaryTotal.toLocaleString()}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const target = data.members.find((m: any) => m.email === sessionUser?.email) || data.members[0];
+                if (target) {
+                  setEditingMember(target);
+                  setMemberNickname(target.nickname || '');
+                  setMemberIncome((target.currentSalary || target.monthlyIncome || '').toString());
+                  setMemberBaseSalary((target.baseSalary || target.monthlyIncome || '').toString());
+                  setUpdateBaseSalaryCheck(false);
+                }
+              }}
+              className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase hover:scale-105 transition-transform"
+            >
+              <Edit2 size={12} /> Edit Salary
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Income can fluctuate monthly. You can override this month&apos;s salary without losing your base salary.
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Constant Family EMI Dues</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-[8px] font-black uppercase">Fixed</span>
+              </div>
+              <h4 className="text-2xl font-black text-indigo-600 dark:text-indigo-400">₹{constantEmiDues.toLocaleString()}<span className="text-xs font-bold text-slate-400">/mo</span></h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                {loans.filter(l => l.status === 'Active' || !l.status).length} Active Loan Liabilities
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500">
+              <Coins size={20} />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Fixed monthly obligations calculated across all family bank loans and active EMIs.
+          </p>
+        </div>
+      </div>
 
       <section className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -401,8 +489,31 @@ export default function FamilyDashboard() {
                 {data.members.map((member: any) => (
                   <div key={member.email} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
                     <div className="flex justify-between items-start mb-4"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-lg font-black text-primary shadow-sm">{member.nickname ? member.nickname[0].toUpperCase() : member.email[0].toUpperCase()}</div><div><h4 className="font-bold text-sm dark:text-white">{member.nickname || 'No Nickname'}</h4><p className="text-[10px] text-slate-400 font-bold">{member.email}</p></div></div><span className={`text-[8px] font-black px-2 py-1 rounded-full uppercase ${member.role === 'Admin' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'}`}>{member.role}</span></div>
-                    <div className="grid grid-cols-2 gap-4 mt-4"><div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700"><span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Monthly</span><span className="text-sm font-black dark:text-white">₹{(member.monthlyIncome || 0).toLocaleString()}</span></div><div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700"><span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Status</span><span className="text-sm font-black text-emerald-500 uppercase">Active</span></div></div>
-                    {userRole === 'Admin' && <button onClick={(e) => { e.stopPropagation(); setEditingMember(member); setMemberNickname(member.nickname || ''); setMemberIncome(member.monthlyIncome?.toString() || ''); }} className="w-full mt-4 py-3 bg-white dark:bg-slate-900 border border-slate-100 rounded-xl text-xs font-black text-primary uppercase" >Edit Details</button>}
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">This Month</span>
+                        <span className="text-sm font-black text-emerald-500">₹{(member.currentSalary || member.monthlyIncome || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Base Salary</span>
+                        <span className="text-sm font-black dark:text-white">₹{(member.baseSalary || member.monthlyIncome || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {(userRole === 'Admin' || member.email === sessionUser?.email) && (
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditingMember(member); 
+                          setMemberNickname(member.nickname || ''); 
+                          setMemberIncome((member.currentSalary || member.monthlyIncome || '').toString()); 
+                          setMemberBaseSalary((member.baseSalary || member.monthlyIncome || '').toString());
+                          setUpdateBaseSalaryCheck(false);
+                        }} 
+                        className="w-full mt-4 py-3 bg-white dark:bg-slate-900 border border-slate-100 rounded-xl text-xs font-black text-primary uppercase"
+                      >
+                        Edit Salary & Details
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -417,12 +528,36 @@ export default function FamilyDashboard() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingMember(null)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80]" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed top-1/2 left-6 right-6 -translate-y-1/2 max-w-sm mx-auto bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 z-[81] shadow-2xl" >
-              <h3 className="text-xl font-black mb-6 dark:text-white uppercase">Edit Member</h3>
-              <div className="space-y-6">
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Nickname</label><input type="text" value={memberNickname} onChange={(e) => setMemberNickname(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-sm font-bold outline-none dark:text-white" /></div>
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Income</label><input type="number" value={memberIncome} onChange={(e) => setMemberIncome(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-sm font-bold outline-none dark:text-white" /></div>
+              <h3 className="text-xl font-black mb-6 dark:text-white uppercase">Edit Member Salary</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nickname</label>
+                  <input type="text" value={memberNickname} onChange={(e) => setMemberNickname(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-sm font-bold outline-none dark:text-white" />
+                </div>
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                  <span className="text-[9px] font-black uppercase text-emerald-600 block mb-1">Base Salary Reference</span>
+                  <div className="text-lg font-black dark:text-white">₹{(parseFloat(memberBaseSalary) || 0).toLocaleString()}</div>
+                  <span className="text-[9px] text-slate-400">Contractual fixed salary baseline</span>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">This Month&apos;s Salary Income</label>
+                  <input type="number" value={memberIncome} onChange={(e) => setMemberIncome(e.target.value)} placeholder="e.g. 52000" className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-sm font-bold outline-none dark:text-white" />
+                  <span className="text-[9px] text-slate-400 block mt-1">Override this month if salary changed due to bonus/deductions</span>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer pt-2">
+                  <input 
+                    type="checkbox" 
+                    checked={updateBaseSalaryCheck} 
+                    onChange={(e) => setUpdateBaseSalaryCheck(e.target.checked)} 
+                    className="rounded text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Also update standard Base Salary to this value</span>
+                </label>
               </div>
-              <div className="flex gap-3 mt-8"><button onClick={() => setEditingMember(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-sm font-black text-slate-500 uppercase">Cancel</button><button onClick={handleUpdateMember} disabled={isUpdatingMember} className="flex-2 px-8 py-4 bg-primary text-white rounded-2xl text-sm font-black uppercase">{isUpdatingMember ? '...' : 'Save'}</button></div>
+              <div className="flex gap-3 mt-8">
+                <button onClick={() => setEditingMember(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-sm font-black text-slate-500 uppercase">Cancel</button>
+                <button onClick={handleUpdateMember} disabled={isUpdatingMember} className="flex-2 px-8 py-4 bg-primary text-white rounded-2xl text-sm font-black uppercase">{isUpdatingMember ? '...' : 'Save'}</button>
+              </div>
             </motion.div>
           </>
         )}

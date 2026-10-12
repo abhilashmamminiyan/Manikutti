@@ -95,7 +95,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({
                           <Chip label={member.role} size="small" color={member.role === 'Admin' ? 'primary' : 'default'} sx={{ height: 20, fontSize: 10 }} />
                         </Box>
                       }
-                      secondary={`${member.email} • Income: ₹${member.monthlyIncome.toLocaleString()}/mo`}
+                      secondary={`${member.email} • Base: ₹${(member.baseSalary || member.monthlyIncome || 0).toLocaleString()} | Current: ₹${(member.currentSalary || member.monthlyIncome || 0).toLocaleString()}/mo`}
                     />
                   </ListItem>
                   <Divider />

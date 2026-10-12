@@ -173,7 +173,7 @@ export class GoogleSheetsService {
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
       'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
-      'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Monthly Income']],
+      'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Base Salary', 'Current Salary']],
       'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan', 'Assigned To']],
       'Invitations': [['Token', 'Email', 'Family Code', 'Spreadsheet ID', 'Status', 'Expiry Date']],
       'Calculator_History': [['Date', 'User', 'Expression', 'Result']],
