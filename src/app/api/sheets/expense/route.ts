@@ -53,11 +53,45 @@ export async function POST(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { sheetName, expense, familyCode } = await request.json();
+    const body = await request.json();
+    const { sheetName, expense, expenses, familyCode } = body;
     const service = new GoogleSheetsService(email);
     const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
     const spreadsheetId = await service.findOrCreateSheet(type);
     if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
+
+    // Handle batch insertion
+    if (Array.isArray(expenses)) {
+      if (sheetName === 'Family_Expenses') {
+        let members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+        const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+        if (!userRow) {
+          return NextResponse.json({ error: 'Forbidden: You are not a member of this family group' }, { status: 403 });
+        }
+        const rows = expenses.map((exp: any) => [
+          exp.date || new Date().toISOString(),
+          exp.amount,
+          exp.category || 'General',
+          exp.note || '',
+          email,
+          familyCode || ''
+        ]);
+        await service.appendRows(spreadsheetId, 'Family_Expenses', rows);
+        return NextResponse.json({ success: true, count: rows.length });
+      } else {
+        const rows = expenses.map((exp: any) => [
+          exp.date || new Date().toISOString(),
+          exp.amount,
+          exp.category || 'General',
+          exp.note || '',
+          exp.isPaid !== undefined ? exp.isPaid : true,
+          exp.type || 'Expense',
+          email
+        ]);
+        await service.appendRows(spreadsheetId, 'Personal_Expenses', rows);
+        return NextResponse.json({ success: true, count: rows.length });
+      }
+    }
 
     if (sheetName === 'Family_Expenses') {
       // Admin Check
