@@ -233,6 +233,17 @@ export class GoogleSheetsService {
     });
   }
 
+  public async appendRows(spreadsheetId: string, range: string, values: unknown[][]) {
+    if (!values || values.length === 0) return;
+    await this.sheets.spreadsheets.values.append({
+      auth: this.auth,
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values },
+    });
+  }
+
   public async updateRow(spreadsheetId: string, range: string, values: unknown[]) {
     await this.sheets.spreadsheets.values.update({
       auth: this.auth,
