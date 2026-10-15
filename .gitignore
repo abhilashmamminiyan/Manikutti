@@ -2,3 +2,8 @@ node_modules
 .next
 .env.local
 .env
+check_duplicates.js
+delete_duplicate.js
+delete_duplicate2.js
+fetch_loan.js
+migrate_data.js
