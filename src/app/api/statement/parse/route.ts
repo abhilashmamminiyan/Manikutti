@@ -197,6 +197,7 @@ function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
 
     const tokens = textForAmounts.split(/\s+/);
     const amountTokens: number[] = [];
+    const rawAmountTokens: string[] = [];
     const descTokens = [...tokens];
 
     while (descTokens.length > 0) {
@@ -213,6 +214,7 @@ function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
       const num = parseFloat(last);
       if (!isNaN(num) && /^\d+(?:\.\d{1,2})?$/.test(last)) {
         amountTokens.unshift(num);
+        rawAmountTokens.unshift(last);
         descTokens.pop();
       } else {
         break;
@@ -221,27 +223,66 @@ function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
 
     if (amountTokens.length === 0) continue;
 
-    const description = descTokens.join(' ').trim() || 'Bank Transaction';
     let amount = 0;
     let type: 'Expense' | 'Income' = 'Expense';
+    let detectedTransId: string | undefined;
 
     if (amountTokens.length >= 3) {
-      const debit = amountTokens[amountTokens.length - 3];
-      const credit = amountTokens[amountTokens.length - 2];
-      if (credit > 0 && debit === 0) {
-        amount = credit;
-        type = 'Income';
+      const candidateAmounts = amountTokens.slice(0, -1);
+      const candidateRaws = rawAmountTokens.slice(0, -1);
+
+      if (candidateAmounts.length >= 2) {
+        const tFirst = candidateAmounts[candidateAmounts.length - 2];
+        const tSecond = candidateAmounts[candidateAmounts.length - 1];
+        const rawFirst = candidateRaws[candidateRaws.length - 2];
+
+        // Check if both are positive numbers
+        if (tFirst > 0 && tSecond > 0) {
+          // In banking, a transaction CANNOT have both Debit > 0 and Credit > 0 in a single row.
+          // Therefore, tFirst is a TRANS ID / Cheque No / Reference No, and tSecond is the real transaction amount!
+          detectedTransId = rawFirst;
+          amount = tSecond;
+        } else if (tFirst > 0 && tSecond === 0) {
+          amount = tFirst;
+          type = 'Expense';
+          if (candidateAmounts.length >= 3) {
+            detectedTransId = candidateRaws[candidateRaws.length - 3];
+          }
+        } else if (tFirst === 0 && tSecond > 0) {
+          amount = tSecond;
+          type = 'Income';
+          if (candidateAmounts.length >= 3) {
+            detectedTransId = candidateRaws[candidateRaws.length - 3];
+          }
+        } else {
+          amount = tFirst > 0 ? tFirst : tSecond;
+        }
       } else {
-        amount = debit > 0 ? debit : credit;
-        type = debit > 0 ? 'Expense' : 'Income';
+        amount = candidateAmounts[0];
       }
     } else if (amountTokens.length === 2) {
-      amount = amountTokens[0];
+      const t0 = amountTokens[0];
+      const t1 = amountTokens[1];
+      const raw0 = rawAmountTokens[0];
+
+      // If t0 is a 6+ digit integer ID without decimal and t1 > 0
+      if (!raw0.includes('.') && t0 >= 100000 && t1 > 0 && t0 > t1 * 5) {
+        detectedTransId = raw0;
+        amount = t1;
+      } else {
+        amount = t0;
+      }
     } else {
       amount = amountTokens[0];
     }
 
     if (amount <= 0) continue;
+
+    let description = descTokens.join(' ').trim();
+    if (detectedTransId && !description.includes(detectedTransId)) {
+      description = description ? `${description} (Txn: ${detectedTransId})` : `Ref: ${detectedTransId}`;
+    }
+    if (!description) description = 'Bank Transaction';
 
     const lowerDesc = description.toLowerCase();
     if (type !== 'Income') {
@@ -323,6 +364,20 @@ For every transaction row found:
 - "category": One of: ["Food", "Housing", "Transport", "Utilities", "Leisure", "Health", "Shopping", "Salary", "Investment", "General"].
 - "description": The full narration or merchant description from the statement.
 - "note": A concise, friendly summary note (e.g. "Swiggy food order", "Amazon purchase", "Fuel at petrol pump", "Salary credit").
+
+CRITICAL INSTRUCTIONS FOR INDIAN BANKS (CANARA BANK, SBI, HDFC, ICICI, etc.):
+1. TRANSACTION ID / CHEQUE NUMBER WARNING:
+   Many Indian bank statements (especially Canara Bank) contain columns such as "TRANS ID", "Tran Id", "Txn ID", "Chq No", "Cheque No", "Ref No", or "Sl No" containing numeric IDs (e.g., 40281928, 1029384756, 123456).
+   DO NOT extract the Transaction ID, Cheque Number, Reference Number, or Serial Number as the transaction "amount"!
+   The "amount" MUST ALWAYS be the actual monetary value of the debit/withdrawal or credit/deposit (e.g., 250.0, 1500.0, 50000.0).
+2. COLUMNS DISTINCTION IN CANARA BANK:
+   In Canara Bank statements, the columns typically appear as:
+   [Date] [Value Date] [Particulars/Description] [TRANS ID] [Withdrawal] [Deposit] [Balance].
+   The "TRANS ID" (e.g., 40281928) is a reference ID.
+   The transaction value is in the "Withdrawal" (for Expense) or "Deposit" (for Income) column.
+   If "Withdrawal" has a value (e.g. 250.00), amount is 250.0 and type is "Expense".
+   If "Deposit" has a value (e.g. 50000.00), amount is 50000.0 and type is "Income".
+   NEVER set amount to the TRANS ID.
 
 Output MUST be a JSON object with this EXACT structure:
 {
