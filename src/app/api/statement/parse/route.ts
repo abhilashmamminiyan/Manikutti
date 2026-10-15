@@ -223,7 +223,18 @@ Output MUST be a JSON object with this EXACT structure:
               rawResponseText = aiJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
               if (rawResponseText) break;
             } else {
-              console.warn(`[StatementParse] ${model} returned status ${aiRes.status}`);
+              const errBody = await aiRes.text();
+              console.warn(`[StatementParse] ${model} returned status ${aiRes.status}:`, errBody);
+              if (errBody.toLowerCase().includes('password') || errBody.toLowerCase().includes('encrypted')) {
+                return NextResponse.json(
+                  {
+                    error: 'PASSWORD_PROTECTED',
+                    isPasswordProtected: true,
+                    message: 'The PDF is password protected. Please unlock it with your statement password.',
+                  },
+                  { status: 422 }
+                );
+              }
             }
           } catch (modelErr) {
             console.warn(`[StatementParse] Error calling ${model}:`, modelErr);
