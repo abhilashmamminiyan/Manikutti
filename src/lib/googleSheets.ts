@@ -167,7 +167,7 @@ export class GoogleSheetsService {
 
   private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin', specificSheets?: string[]) {
     const headers: Record<string, string[][]> = {
-      'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type']],
+      'Personal_Expenses': [['Date', 'Amount', 'Category', 'Note', 'isPaid', 'Type', 'Added By', 'Bank Account']],
       'Personal_Utilities': [['Title', 'Amount', 'Validity', 'Status', 'Last Paid Date', 'Next Due Date', 'Note', 'Log Expense']],
       'Mobile_Recharges': [['Name', 'Phone Number', 'Operator', 'Plan Last Recharged', 'Plan Description', 'Validity Till', 'Last Recharged Date', 'Reminder Days Before', 'Notify Expiry', 'Note', 'Log Expense']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],

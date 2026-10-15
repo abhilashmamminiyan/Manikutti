@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet(type);
     if (!spreadsheetId) return NextResponse.json({ error: 'Spreadsheet not found' }, { status: 500 });
 
-    const range = sheetName === 'Family_Expenses' ? 'A:F' : 'A:G';
+    const range = sheetName === 'Family_Expenses' ? 'A:F' : 'A:H';
     const rows = await service.getSheetData(spreadsheetId, `${sheetName}!${range}`);
     const expenses = rows.slice(1).map((row, index) => {
       if (sheetName === 'Family_Expenses') {
@@ -36,6 +36,8 @@ export async function GET(request: Request) {
         note: row[3],
         isPaid: row[4] === 'TRUE' || row[4] === 'true' || row[4] === 'Paid',
         type: row[5] || 'Expense',
+        addedBy: row[6] || email,
+        bankAccount: row[7] || 'SBI',
         id: index + 1
       };
     });
@@ -86,7 +88,8 @@ export async function POST(request: Request) {
           exp.note || '',
           exp.isPaid !== undefined ? exp.isPaid : true,
           exp.type || 'Expense',
-          email
+          email,
+          exp.bankAccount || 'SBI'
         ]);
         await service.appendRows(spreadsheetId, 'Personal_Expenses', rows);
         return NextResponse.json({ success: true, count: rows.length });
@@ -138,7 +141,9 @@ export async function POST(request: Request) {
         expense.category,
         expense.note || '',
         expense.isPaid !== undefined ? expense.isPaid : true,
-        expense.type || 'Expense'
+        expense.type || 'Expense',
+        email,
+        expense.bankAccount || 'SBI'
       ];
       await service.appendRow(spreadsheetId, 'Personal_Expenses', rowData);
     }
