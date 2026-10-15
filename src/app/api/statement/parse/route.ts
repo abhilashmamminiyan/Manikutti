@@ -123,57 +123,94 @@ const MONTHS: Record<string, string> = {
  * [Date] [Value Date] [Description / Narration] [Ref / Chq] [Debit] [Credit] [Balance]
  */
 function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
-  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const cleanedText = rawText.replace(/\u00A0/g, ' ');
+  const rawLines = cleanedText.split(/\r?\n/).map(l => l.trim());
+
+  const consolidatedLines: string[] = [];
+  let currentBlock = '';
+
+  const monthNames = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+  const lineDatePattern = new RegExp(`(?:^|\\s|\\b)(\\d{1,2}[\\s/-]+(?:${monthNames})[a-z]*[\\s/-]+\\d{2,4}|\\d{1,4}[-/.]\\d{1,2}[-/.]\\d{1,4})`, 'i');
+
+  for (const line of rawLines) {
+    if (!line) continue;
+    const match = line.match(lineDatePattern);
+    const hasDateAtStart = match && (match.index ?? 0) <= 8;
+
+    if (hasDateAtStart) {
+      if (currentBlock) {
+        consolidatedLines.push(currentBlock);
+      }
+      currentBlock = line;
+    } else if (currentBlock) {
+      currentBlock += ' ' + line;
+    }
+  }
+  if (currentBlock) {
+    consolidatedLines.push(currentBlock);
+  }
+
   const results: ExtractedTransaction[] = [];
 
-  // Match dates: "01 Oct 2026", "1-Oct-2026", "01/10/2026", "01-10-2026", "2026-10-01"
-  const dateRegex = /^(\d{1,2})[\s/-]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-]+(\d{2,4})|^(\d{1,4})[-/.](\d{1,2})[-/.](\d{1,4})/i;
+  for (const block of consolidatedLines) {
+    const dateMatch = block.match(lineDatePattern);
+    if (!dateMatch || (dateMatch.index ?? 0) > 8) continue;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const match = line.match(dateRegex);
-    if (!match) continue;
-
+    const dateStr = dateMatch[1];
     let parsedDate = '';
-    let remainder = '';
 
-    if (match[1] && match[2] && match[3]) {
-      const day = match[1].padStart(2, '0');
-      const month = MONTHS[match[2].toLowerCase().slice(0, 3)] || '01';
-      let year = match[3];
+    const alphaMonthMatch = dateStr.match(/^(\d{1,2})[\s/-]+([A-Za-z]{3})[a-z]*[\s/-]+(\d{2,4})$/);
+    if (alphaMonthMatch) {
+      const day = alphaMonthMatch[1].padStart(2, '0');
+      const month = MONTHS[alphaMonthMatch[2].toLowerCase()] || '01';
+      let year = alphaMonthMatch[3];
       if (year.length === 2) year = '20' + year;
       parsedDate = `${year}-${month}-${day}`;
-      remainder = line.slice(match[0].length).trim();
-    } else if (match[4] && match[5] && match[6]) {
-      const p1 = match[4];
-      const p2 = match[5].padStart(2, '0');
-      const p3 = match[6];
-      if (p1.length === 4) {
-        parsedDate = `${p1}-${p2}-${p3.padStart(2, '0')}`;
-      } else {
-        const year = p3.length === 2 ? '20' + p3 : p3;
-        parsedDate = `${year}-${p2}-${p1.padStart(2, '0')}`;
+    } else {
+      const numParts = dateStr.split(/[-/.]/);
+      if (numParts.length === 3) {
+        if (numParts[0].length === 4) {
+          parsedDate = `${numParts[0]}-${numParts[1].padStart(2, '0')}-${numParts[2].padStart(2, '0')}`;
+        } else {
+          let year = numParts[2];
+          if (year.length === 2) year = '20' + year;
+          parsedDate = `${year}-${numParts[1].padStart(2, '0')}-${numParts[0].padStart(2, '0')}`;
+        }
       }
-      remainder = line.slice(match[0].length).trim();
     }
 
     if (!parsedDate) continue;
 
-    // Optional second date (Value date often immediately follows Txn date in SBI/HDFC)
-    const secondDateMatch = remainder.match(dateRegex);
-    if (secondDateMatch) {
-      remainder = remainder.slice(secondDateMatch[0].length).trim();
+    const dateEndIndex = (dateMatch.index ?? 0) + dateMatch[0].length;
+    let remainder = block.slice(dateEndIndex).trim();
+
+    const secondDateMatch = remainder.match(lineDatePattern);
+    if (secondDateMatch && (secondDateMatch.index ?? 0) <= 2) {
+      remainder = remainder.slice((secondDateMatch.index ?? 0) + secondDateMatch[0].length).trim();
     }
 
-    // Extract trailing currency amounts (Debit, Credit, Balance)
-    const tokens = remainder.split(/\s+/);
+    let textForAmounts = remainder;
+    const trailMatch = textForAmounts.match(/[\s(]+(cr|dr)[\s)]*$/i);
+    if (trailMatch && trailMatch.index !== undefined) {
+      textForAmounts = textForAmounts.slice(0, trailMatch.index).trim();
+    }
+
+    const tokens = textForAmounts.split(/\s+/);
     const amountTokens: number[] = [];
     const descTokens = [...tokens];
 
     while (descTokens.length > 0) {
-      const last = descTokens[descTokens.length - 1].replace(/,/g, '');
+      let last = descTokens[descTokens.length - 1].replace(/,/g, '');
+      if (last.toLowerCase().endsWith('cr') || last.toLowerCase().endsWith('dr')) {
+        last = last.slice(0, -2);
+      }
+
+      if (last === '-' || last === '--') {
+        descTokens.pop();
+        continue;
+      }
+
       const num = parseFloat(last);
-      // Valid currency amount token e.g. 450.00 or 12345.67
       if (!isNaN(num) && /^\d+(?:\.\d{1,2})?$/.test(last)) {
         amountTokens.unshift(num);
         descTokens.pop();
@@ -188,25 +225,39 @@ function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
     let amount = 0;
     let type: 'Expense' | 'Income' = 'Expense';
 
-    const lowerDesc = description.toLowerCase();
-    const isCredit =
-      lowerDesc.includes(' cr') ||
-      lowerDesc.includes('credit') ||
-      lowerDesc.includes('salary') ||
-      lowerDesc.includes('by transfer') ||
-      lowerDesc.includes('refund') ||
-      lowerDesc.includes('interest') ||
-      lowerDesc.includes('dividend');
-
-    if (amountTokens.length >= 2) {
-      // Last token is running balance, previous token is transaction amount
-      amount = amountTokens[amountTokens.length - 2];
+    if (amountTokens.length >= 3) {
+      const debit = amountTokens[amountTokens.length - 3];
+      const credit = amountTokens[amountTokens.length - 2];
+      if (credit > 0 && debit === 0) {
+        amount = credit;
+        type = 'Income';
+      } else {
+        amount = debit > 0 ? debit : credit;
+        type = debit > 0 ? 'Expense' : 'Income';
+      }
+    } else if (amountTokens.length === 2) {
+      amount = amountTokens[0];
     } else {
       amount = amountTokens[0];
     }
 
     if (amount <= 0) continue;
-    type = isCredit ? 'Income' : 'Expense';
+
+    const lowerDesc = description.toLowerCase();
+    if (type !== 'Income') {
+      const isCredit =
+        lowerDesc.includes(' cr') ||
+        lowerDesc.includes('credit') ||
+        lowerDesc.includes('salary') ||
+        lowerDesc.includes('by transfer') ||
+        lowerDesc.includes('refund') ||
+        lowerDesc.includes('interest') ||
+        lowerDesc.includes('/cr/') ||
+        lowerDesc.includes('dividend');
+      if (isCredit) {
+        type = 'Income';
+      }
+    }
 
     // Intelligent category classification
     let category = 'General';
