@@ -112,6 +112,127 @@ function parseCsvFallback(csvText: string): ExtractedTransaction[] {
   return results;
 }
 
+const MONTHS: Record<string, string> = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+};
+
+/**
+ * Intelligent regex/column parser for Indian Bank statements (SBI, HDFC, ICICI, Canara, Axis, Federal)
+ * Supports standard table layouts like:
+ * [Date] [Value Date] [Description / Narration] [Ref / Chq] [Debit] [Credit] [Balance]
+ */
+function parseIndianBankStatementText(rawText: string): ExtractedTransaction[] {
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const results: ExtractedTransaction[] = [];
+
+  // Match dates: "01 Oct 2026", "1-Oct-2026", "01/10/2026", "01-10-2026", "2026-10-01"
+  const dateRegex = /^(\d{1,2})[\s/-]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-]+(\d{2,4})|^(\d{1,4})[-/.](\d{1,2})[-/.](\d{1,4})/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(dateRegex);
+    if (!match) continue;
+
+    let parsedDate = '';
+    let remainder = '';
+
+    if (match[1] && match[2] && match[3]) {
+      const day = match[1].padStart(2, '0');
+      const month = MONTHS[match[2].toLowerCase().slice(0, 3)] || '01';
+      let year = match[3];
+      if (year.length === 2) year = '20' + year;
+      parsedDate = `${year}-${month}-${day}`;
+      remainder = line.slice(match[0].length).trim();
+    } else if (match[4] && match[5] && match[6]) {
+      const p1 = match[4];
+      const p2 = match[5].padStart(2, '0');
+      const p3 = match[6];
+      if (p1.length === 4) {
+        parsedDate = `${p1}-${p2}-${p3.padStart(2, '0')}`;
+      } else {
+        const year = p3.length === 2 ? '20' + p3 : p3;
+        parsedDate = `${year}-${p2}-${p1.padStart(2, '0')}`;
+      }
+      remainder = line.slice(match[0].length).trim();
+    }
+
+    if (!parsedDate) continue;
+
+    // Optional second date (Value date often immediately follows Txn date in SBI/HDFC)
+    const secondDateMatch = remainder.match(dateRegex);
+    if (secondDateMatch) {
+      remainder = remainder.slice(secondDateMatch[0].length).trim();
+    }
+
+    // Extract trailing currency amounts (Debit, Credit, Balance)
+    const tokens = remainder.split(/\s+/);
+    const amountTokens: number[] = [];
+    const descTokens = [...tokens];
+
+    while (descTokens.length > 0) {
+      const last = descTokens[descTokens.length - 1].replace(/,/g, '');
+      const num = parseFloat(last);
+      // Valid currency amount token e.g. 450.00 or 12345.67
+      if (!isNaN(num) && /^\d+(?:\.\d{1,2})?$/.test(last)) {
+        amountTokens.unshift(num);
+        descTokens.pop();
+      } else {
+        break;
+      }
+    }
+
+    if (amountTokens.length === 0) continue;
+
+    const description = descTokens.join(' ').trim() || 'Bank Transaction';
+    let amount = 0;
+    let type: 'Expense' | 'Income' = 'Expense';
+
+    const lowerDesc = description.toLowerCase();
+    const isCredit =
+      lowerDesc.includes(' cr') ||
+      lowerDesc.includes('credit') ||
+      lowerDesc.includes('salary') ||
+      lowerDesc.includes('by transfer') ||
+      lowerDesc.includes('refund') ||
+      lowerDesc.includes('interest') ||
+      lowerDesc.includes('dividend');
+
+    if (amountTokens.length >= 2) {
+      // Last token is running balance, previous token is transaction amount
+      amount = amountTokens[amountTokens.length - 2];
+    } else {
+      amount = amountTokens[0];
+    }
+
+    if (amount <= 0) continue;
+    type = isCredit ? 'Income' : 'Expense';
+
+    // Intelligent category classification
+    let category = 'General';
+    if (lowerDesc.includes('swiggy') || lowerDesc.includes('zomato') || lowerDesc.includes('hotel') || lowerDesc.includes('food') || lowerDesc.includes('restaurant') || lowerDesc.includes('cafe')) category = 'Food';
+    else if (lowerDesc.includes('fuel') || lowerDesc.includes('petrol') || lowerDesc.includes('hpcl') || lowerDesc.includes('bpcl') || lowerDesc.includes('ioc') || lowerDesc.includes('uber') || lowerDesc.includes('ola')) category = 'Transport';
+    else if (lowerDesc.includes('amazon') || lowerDesc.includes('flipkart') || lowerDesc.includes('myntra') || lowerDesc.includes('retail') || lowerDesc.includes('mart') || lowerDesc.includes('pos ')) category = 'Shopping';
+    else if (lowerDesc.includes('salary') || lowerDesc.includes('payroll')) { category = 'Salary'; type = 'Income'; }
+    else if (lowerDesc.includes('electric') || lowerDesc.includes('kseb') || lowerDesc.includes('bescom') || lowerDesc.includes('airtel') || lowerDesc.includes('jio') || lowerDesc.includes('vi ') || lowerDesc.includes('broadband')) category = 'Utilities';
+    else if (lowerDesc.includes('rent') || lowerDesc.includes('housing') || lowerDesc.includes('society')) category = 'Housing';
+    else if (lowerDesc.includes('pharmacy') || lowerDesc.includes('hospital') || lowerDesc.includes('med') || lowerDesc.includes('clinic')) category = 'Health';
+    else if (lowerDesc.includes('cinema') || lowerDesc.includes('movie') || lowerDesc.includes('theatre') || lowerDesc.includes('netflix') || lowerDesc.includes('hotstar') || lowerDesc.includes('prime')) category = 'Leisure';
+    else if (lowerDesc.includes('zerodha') || lowerDesc.includes('groww') || lowerDesc.includes('mutual') || lowerDesc.includes('sip') || lowerDesc.includes('mf ')) category = 'Investment';
+
+    results.push({
+      date: parsedDate,
+      amount,
+      type,
+      category,
+      description,
+      note: description.slice(0, 60),
+    });
+  }
+
+  return results;
+}
+
 export async function POST(request: Request) {
   try {
     const email = await getAuthUserEmail(request);
@@ -120,30 +241,36 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { fileBase64, fileName, mimeType } = body;
+    const { fileBase64, fileName, mimeType, textContent: directText } = body;
 
-    if (!fileBase64) {
-      return NextResponse.json({ error: 'Missing fileBase64 in request' }, { status: 400 });
+    if (!fileBase64 && !directText) {
+      return NextResponse.json({ error: 'Missing fileBase64 or textContent in request' }, { status: 400 });
     }
 
-    const isPdf = (mimeType && mimeType.includes('pdf')) || (fileName && fileName.toLowerCase().endsWith('.pdf'));
+    const isPdf = (!directText) && ((mimeType && mimeType.includes('pdf')) || (fileName && fileName.toLowerCase().endsWith('.pdf')));
     const isCsv = (mimeType && (mimeType.includes('csv') || mimeType.includes('text'))) || (fileName && fileName.toLowerCase().endsWith('.csv'));
+
+    // Effective raw text (either directly extracted on client or from base64)
+    let extractedRawText = directText || '';
+    if (!extractedRawText && fileBase64 && !isPdf) {
+      extractedRawText = Buffer.from(fileBase64, 'base64').toString('utf-8');
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // 1. If Gemini API Key is available, use multimodal Gemini Flash to parse accurately
+    // 1. If Gemini API Key is available, use multimodal / text Gemini Flash
     if (apiKey) {
       try {
         const systemInstruction = `
 You are an expert banking and financial data extractor for the Manikutti Hub.
 Extract ALL individual financial transactions from this bank statement.
 
-For every transaction, output:
-- "date": Date in "YYYY-MM-DD" format.
+For every transaction row found:
+- "date": Date normalized to "YYYY-MM-DD" format.
 - "amount": Positive numeric float (e.g. 450.0).
-- "type": "Expense" if it was a debit, withdrawal, transfer out, or payment; "Income" if it was a credit, deposit, refund, or salary.
+- "type": "Expense" if it was a debit, withdrawal, payment, or transfer out; "Income" if it was a credit, deposit, salary, or refund.
 - "category": One of: ["Food", "Housing", "Transport", "Utilities", "Leisure", "Health", "Shopping", "Salary", "Investment", "General"].
-- "description": The raw narration / merchant description from the statement.
+- "description": The full narration or merchant description from the statement.
 - "note": A concise, friendly summary note (e.g. "Swiggy food order", "Amazon purchase", "Fuel at petrol pump", "Salary credit").
 
 Output MUST be a JSON object with this EXACT structure:
@@ -162,7 +289,18 @@ Output MUST be a JSON object with this EXACT structure:
 `;
 
         let contents: any[] = [];
-        if (isPdf) {
+        if (extractedRawText) {
+          contents = [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Here is the bank statement content:\n\n${extractedRawText}\n\nExtract all transactions into the requested JSON schema.`,
+                },
+              ],
+            },
+          ];
+        } else if (fileBase64 && isPdf) {
           contents = [
             {
               role: 'user',
@@ -179,23 +317,10 @@ Output MUST be a JSON object with this EXACT structure:
               ],
             },
           ];
-        } else {
-          // Text/CSV
-          const textContent = Buffer.from(fileBase64, 'base64').toString('utf-8');
-          contents = [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: `Here is the bank statement content:\n\n${textContent}\n\nExtract all transactions into the requested JSON schema.`,
-                },
-              ],
-            },
-          ];
         }
 
-        // Try gemini-2.5-flash first, fallback to gemini-1.5-flash
-        const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+        // Try gemini-2.0-flash first, fallback to gemini-1.5-flash
+        const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
         let rawResponseText = '';
 
         for (const model of models) {
@@ -244,7 +369,7 @@ Output MUST be a JSON object with this EXACT structure:
         if (rawResponseText) {
           const parsed = JSON.parse(rawResponseText);
           const rawList = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
-          
+
           const transactions: ExtractedTransaction[] = rawList
             .filter((t: any) => t && t.date && !isNaN(Number(t.amount)) && Number(t.amount) > 0)
             .map((t: any) => ({
@@ -256,33 +381,46 @@ Output MUST be a JSON object with this EXACT structure:
               note: t.note || t.description || 'Transaction',
             }));
 
-          return NextResponse.json({
-            success: true,
-            transactions,
-            count: transactions.length,
-            engine: 'gemini',
-          });
+          if (transactions.length > 0) {
+            return NextResponse.json({
+              success: true,
+              transactions,
+              count: transactions.length,
+              engine: 'gemini',
+            });
+          }
         }
       } catch (geminiError) {
         console.error('[StatementParse] Gemini extraction failed:', geminiError);
       }
     }
 
-    // 2. Fallback for CSV if Gemini unavailable or not PDF
-    if (isCsv || !isPdf) {
+    // 2. Intelligent Rule-based fallback if Gemini failed or is unavailable
+    if (extractedRawText) {
       try {
-        const textContent = Buffer.from(fileBase64, 'base64').toString('utf-8');
-        const fallbackTransactions = parseCsvFallback(textContent);
-        if (fallbackTransactions.length > 0) {
+        // Try Indian bank statement table parsing first (SBI, HDFC, ICICI, etc.)
+        const statementTransactions = parseIndianBankStatementText(extractedRawText);
+        if (statementTransactions.length > 0) {
           return NextResponse.json({
             success: true,
-            transactions: fallbackTransactions,
-            count: fallbackTransactions.length,
+            transactions: statementTransactions,
+            count: statementTransactions.length,
+            engine: 'rule-based-statement',
+          });
+        }
+
+        // Try standard CSV parsing
+        const csvTransactions = parseCsvFallback(extractedRawText);
+        if (csvTransactions.length > 0) {
+          return NextResponse.json({
+            success: true,
+            transactions: csvTransactions,
+            count: csvTransactions.length,
             engine: 'rule-based-csv',
           });
         }
-      } catch (csvErr) {
-        console.error('[StatementParse] CSV fallback error:', csvErr);
+      } catch (fallbackErr) {
+        console.error('[StatementParse] Local text parsing fallback error:', fallbackErr);
       }
     }
 
