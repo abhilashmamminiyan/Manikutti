@@ -6,7 +6,7 @@ import { Wifi, Plus, Trash2, CheckCircle2, Edit2, Zap } from 'lucide-react';
 import { useAppShell } from '@/components/AppShell';
 
 export default function PersonalUtilities() {
-  const { lastRefresh, setLastRefresh } = useAppShell();
+  const { lastRefresh, refreshData } = useAppShell();
   const [utilities, setUtilities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,7 +38,7 @@ export default function PersonalUtilities() {
           paidDate: new Date().toISOString()
         })
       });
-      if (res.ok) setLastRefresh(Date.now());
+      if (res.ok) refreshData();
     } catch (err) {
       console.error('Failed to pay utility');
     }
@@ -50,7 +50,7 @@ export default function PersonalUtilities() {
       const res = await fetch(`/api/sheets/utilities?id=${id}`, {
         method: 'DELETE'
       });
-      if (res.ok) setLastRefresh(Date.now());
+      if (res.ok) refreshData();
     } catch (err) {
       console.error('Failed to delete utility');
     }

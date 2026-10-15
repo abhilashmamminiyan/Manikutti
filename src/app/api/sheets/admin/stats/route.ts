@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     await service.ensureSheetsExist(adminSheetId, 'Admin');
 
     // 2. Fetch Family Members to find user's family code
-    let memberRows = await service.getSheetData(familySheetId, 'Family_Members!A:F');
+    let memberRows = await service.getSheetData(familySheetId, 'Family_Members!A:G');
     
     // Auto-initialize admin as a member if sheet has only headers
     if (memberRows.length <= 1) {
@@ -38,11 +38,12 @@ export async function GET(request: Request) {
         'Admin',
         joinedDate,
         defaultNickname,
+        '0',
         '0'
       ]);
       
       // Re-fetch member rows
-      memberRows = await service.getSheetData(familySheetId, 'Family_Members!A:F');
+      memberRows = await service.getSheetData(familySheetId, 'Family_Members!A:G');
     }
 
     const userRow = memberRows.slice(1).find(r => r[1]?.toString().trim().toLowerCase() === email.toLowerCase());
@@ -76,13 +77,19 @@ export async function GET(request: Request) {
     // 4. Map and filter family members
     const members = memberRows.slice(1)
       .filter(r => r[0]?.toString().trim() === familyCode?.toString().trim())
-      .map(r => ({
-        email: r[1]?.toString().trim() || '',
-        role: r[2]?.toString().trim() || 'Member',
-        joinedDate: r[3]?.toString().trim() || '',
-        nickname: r[4]?.toString().trim() || r[1]?.toString().split('@')[0] || 'Unknown',
-        monthlyIncome: parseFloat(r[5]) || 0
-      }));
+      .map(r => {
+        const baseSalary = parseFloat(r[5]) || 0;
+        const currentSalary = r[6] !== undefined && r[6] !== '' ? parseFloat(r[6]) : baseSalary;
+        return {
+          email: r[1]?.toString().trim() || '',
+          role: r[2]?.toString().trim() || 'Member',
+          joinedDate: r[3]?.toString().trim() || '',
+          nickname: r[4]?.toString().trim() || r[1]?.toString().split('@')[0] || 'Unknown',
+          baseSalary,
+          monthlyIncome: currentSalary,
+          currentSalary
+        };
+      });
 
     const membersMap = new Map(members.map(m => [m.email.toLowerCase(), m.nickname]));
 
@@ -160,10 +167,30 @@ export async function GET(request: Request) {
 
     // 9. Calculations
     const totalSpend = expenses.reduce((sum, item) => sum + item.amount, 0);
-    const totalIncome = members.reduce((sum, item) => sum + item.monthlyIncome, 0);
+    const totalBaseSalary = members.reduce((sum, item) => sum + item.baseSalary, 0);
+    const totalIncome = members.reduce((sum, item) => sum + item.currentSalary, 0);
     const activeMembersCount = members.length;
     const activeLoansCount = loans.filter(l => l.status === 'Active').length;
     const pendingDuesCount = dues.filter(d => d.status === 'Unpaid').length;
+
+    // Calculate Constant Family EMI Dues (active loans + standalone EMI commitments)
+    const loanNames = new Set(loans.map(l => l.name.toLowerCase()));
+    const activeLoansEmi = loans
+      .filter(l => l.status === 'Active')
+      .reduce((sum, l) => sum + (l.monthlyEMI || 0), 0);
+
+    const standaloneEmiDues = dues
+      .filter(d => {
+        const titleLower = d.title.toLowerCase();
+        const cleanTitle = titleLower.replace('emi:', '').trim();
+        const linked = (d.linkedLoan || '').toLowerCase().trim();
+        const isEmi = titleLower.includes('emi') || linked.length > 0;
+        const isAlreadyCounted = loanNames.has(titleLower) || loanNames.has(cleanTitle) || loanNames.has(linked);
+        return isEmi && !isAlreadyCounted;
+      })
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    const constantEmiDues = activeLoansEmi + standaloneEmiDues;
 
     // Category breakdown for charts
     const categoriesMap: Record<string, number> = {};
@@ -183,6 +210,8 @@ export async function GET(request: Request) {
       totals: {
         totalSpend,
         totalIncome,
+        totalBaseSalary,
+        constantEmiDues,
         netSavings: totalIncome - totalSpend,
         activeMembersCount,
         activeLoansCount,

@@ -396,6 +396,8 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 totals={totals}
                 categoryBreakdown={categoryBreakdown}
                 recentExpenses={recentExpenses}
+                members={members}
+                onRefresh={fetchStats}
               />
             )}
 
