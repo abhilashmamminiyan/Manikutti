@@ -143,7 +143,7 @@ export class GoogleSheetsService {
     if (type === 'Personal') {
       requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges'];
+      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals'];
     } else if (type === 'Admin') {
       requiredSheets = ['User_Sheets'];
     }
@@ -171,7 +171,8 @@ export class GoogleSheetsService {
       'Personal_Utilities': [['Title', 'Amount', 'Validity', 'Status', 'Last Paid Date', 'Next Due Date', 'Note', 'Log Expense']],
       'Mobile_Recharges': [['Name', 'Phone Number', 'Operator', 'Plan Last Recharged', 'Plan Description', 'Validity Till', 'Last Recharged Date', 'Reminder Days Before', 'Notify Expiry', 'Note', 'Log Expense']],
       'Settings': [['Categories'], ['Food'], ['Housing'], ['Transport'], ['Leisure'], ['Health'], ['Shopping'], ['Investment']],
-      'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'User Email']],
+      'Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'Goal Type', 'Target Date', 'Added By', 'Note', 'Created At']],
+      'Family_Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'Goal Type', 'Target Date', 'Added By', 'Note', 'Created At']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
       'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Base Salary', 'Current Salary']],
       'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan', 'Assigned To']],
