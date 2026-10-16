@@ -233,10 +233,10 @@ export async function DELETE(request: Request) {
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
+    const action = url.searchParams.get('action');
+    const sheetName = url.searchParams.get('sheetName') || 'Personal_Expenses';
     const idStr = url.searchParams.get('id');
-    const sheetName = url.searchParams.get('sheetName');
-    if (!idStr || !sheetName) return NextResponse.json({ error: 'ID and sheetName parameters required' }, { status: 400 });
-    const id = parseInt(idStr);
+    const dateStr = url.searchParams.get('date');
 
     const service = new GoogleSheetsService(email);
     const type = sheetName === 'Family_Expenses' ? 'Family' : 'Personal';
@@ -252,10 +252,41 @@ export async function DELETE(request: Request) {
       }
     }
 
+    // 1. Delete last N transactions (action=delete_last)
+    if (action === 'delete_last') {
+      const count = parseInt(url.searchParams.get('count') || '1', 10) || 1;
+      const rows = await service.getSheetData(spreadsheetId, `${sheetName}!A:A`);
+      if (rows.length <= 1) {
+        return NextResponse.json({ success: true, deletedCount: 0, message: 'No transactions found to delete' });
+      }
+      const actualCount = Math.min(count, rows.length - 1);
+      const startIndex = rows.length - actualCount;
+      const endIndex = rows.length;
+      await service.deleteRows(spreadsheetId, sheetName, startIndex, endIndex);
+      return NextResponse.json({ success: true, deletedCount: actualCount });
+    }
+
+    // 2. Delete by matching ISO Date
+    if (dateStr) {
+      const rows = await service.getSheetData(spreadsheetId, `${sheetName}!A:D`);
+      const matchedIdx = rows.findIndex((row, idx) => idx > 0 && row[0] === dateStr);
+      if (matchedIdx === -1) {
+        return NextResponse.json({ error: 'Transaction with specified date not found' }, { status: 404 });
+      }
+      const rowIndex = matchedIdx + 1; // 1-indexed row in Google Sheets
+      await service.deleteRow(spreadsheetId, sheetName, rowIndex);
+      return NextResponse.json({ success: true, deletedCount: 1 });
+    }
+
+    // 3. Fallback to existing single row ID (id is 1-based index from GET)
+    if (!idStr) {
+      return NextResponse.json({ error: 'ID, date, or action parameter required' }, { status: 400 });
+    }
+    const id = parseInt(idStr, 10);
     const rowIndex = id + 1; // row index in sheet is id + 1
     await service.deleteRow(spreadsheetId, sheetName, rowIndex);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deletedCount: 1 });
   } catch (error: any) {
     console.error('Expense DELETE Error:', error);
     return NextResponse.json({ error: 'Delete failed', details: error.message }, { status: 500 });
