@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.abhilash.manikutti",
+      "sha256_cert_fingerprints": [
+        "9D:7B:02:B3:65:47:B4:47:67:2B:1B:61:C3:6D:CF:7A:C0:1D:C5:4C:32:31:DC:EC:08:31:F5:EA:C2:4A:03:84"
+      ]
+    }
+  }
+]
