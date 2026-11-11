@@ -15,6 +15,8 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
+    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:J');
+
     const now = new Date();
     const currentYear = now.getUTCFullYear();
     const currentMonth = now.getUTCMonth();

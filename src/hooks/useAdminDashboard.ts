@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react';
 
 export function useAdminDashboard() {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'users' | 'loans' | 'recharges' | 'goals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'users' | 'roles' | 'loans' | 'recharges' | 'goals'>('overview');
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState<any>(null);
   const [error, setError] = useState('');
@@ -13,6 +13,8 @@ export function useAdminDashboard() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [invitePersonalSheetId, setInvitePersonalSheetId] = useState('');
+  const [inviteRole, setInviteRole] = useState('Member');
+  const [availableRoles, setAvailableRoles] = useState<string[]>(['Member', 'Partner', 'Basic', 'Admin']);
   const [inviteLoading, setInviteLoading] = useState(false);
 
   // New Monthly Expense & Loan Dialog States
@@ -80,6 +82,17 @@ export function useAdminDashboard() {
       }
       const data = await res.json();
       setStatsData(data);
+
+      // Load configured custom roles so Invite dialog stays in sync
+      fetch('/api/sheets/roles')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((rolesData) => {
+          if (rolesData?.roles && Array.isArray(rolesData.roles)) {
+            const names = rolesData.roles.map((r: any) => r.roleName).filter(Boolean);
+            if (names.length > 0) setAvailableRoles(names);
+          }
+        })
+        .catch(() => {});
     } catch (err: any) {
       setError(err.message || 'An error occurred while loading dashboard statistics.');
     } finally {
@@ -105,7 +118,8 @@ export function useAdminDashboard() {
           action: 'invite',
           email: inviteEmail,
           name: inviteName || 'Family member',
-          personalSpreadsheetId: invitePersonalSheetId
+          personalSpreadsheetId: invitePersonalSheetId,
+          roleName: inviteRole || 'Member'
         })
       });
       const data = await res.json();
@@ -115,6 +129,7 @@ export function useAdminDashboard() {
       setInviteEmail('');
       setInviteName('');
       setInvitePersonalSheetId('');
+      setInviteRole('Member');
     } catch (e: any) {
       alert(e.message || 'Failed to send invite');
     } finally {
@@ -414,6 +429,9 @@ export function useAdminDashboard() {
     setInviteName,
     invitePersonalSheetId,
     setInvitePersonalSheetId,
+    inviteRole,
+    setInviteRole,
+    availableRoles,
     inviteLoading,
     handleSendInvite,
 
