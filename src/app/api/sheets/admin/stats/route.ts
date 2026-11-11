@@ -184,7 +184,7 @@ export async function GET(request: Request) {
         const titleLower = d.title.toLowerCase();
         const cleanTitle = titleLower.replace('emi:', '').trim();
         const linked = (d.linkedLoan || '').toLowerCase().trim();
-        const isEmi = titleLower.includes('emi') || linked.length > 0;
+        const isEmi = titleLower.includes('emi') || titleLower.includes('loan') || linked.length > 0;
         const isAlreadyCounted = loanNames.has(titleLower) || loanNames.has(cleanTitle) || loanNames.has(linked);
         return isEmi && !isAlreadyCounted;
       })

@@ -14,7 +14,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       email: decoded.email,
       familyCode: decoded.familyCode,
-      personalSpreadsheetId: decoded.personalSpreadsheetId
+      personalSpreadsheetId: decoded.personalSpreadsheetId,
+      roleName: decoded.roleName || 'Member',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Invalid or expired invitation token' }, { status: 400 });

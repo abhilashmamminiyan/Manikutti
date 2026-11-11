@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
+import { sendFcmToUsers } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request) {
   try {
@@ -89,7 +90,24 @@ export async function POST(request: Request) {
       email
     ]);
 
-    return NextResponse.json({ success: true });
+    // Dispatch FCM push notification to all family members
+    const familyMemberEmails = memberRows
+      .slice(1)
+      .filter((r) => r[0]?.toString().trim() === familyCode)
+      .map((r) => r[1]?.toString().trim().toLowerCase())
+      .filter(Boolean);
+
+    const fcmResult = await sendFcmToUsers(familyMemberEmails, {
+      title: String(title),
+      body: String(message),
+      channelId: 'payment_channel',
+      data: {
+        type: 'family_notification',
+        familyCode,
+      },
+    });
+
+    return NextResponse.json({ success: true, fcm: fcmResult });
   } catch (error: any) {
     console.error('Notifications POST Error:', error);
     return NextResponse.json({ error: 'Failed to send notification', details: error.message }, { status: 500 });

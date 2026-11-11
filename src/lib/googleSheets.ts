@@ -1,6 +1,7 @@
 import { google, sheets_v4, drive_v3 } from 'googleapis';
 import { ManikuttiSession } from './types';
 import { parsePrivateKey } from './authHelper';
+import { getUserRecordFromFirestore, upsertUserRecordInFirestore } from './featurePermissions';
 
 export const PERSONAL_SHEET_NAME = 'Manikutti_v2_Personal';
 export const FAMILY_SHEET_PREFIX = 'Manikutti_v2_Family_';
@@ -80,6 +81,16 @@ export class GoogleSheetsService {
         throw new Error('User email is required for Personal spreadsheet operations.');
       }
 
+      const cleanEmail = this.userEmail.trim().toLowerCase();
+
+      // 1. Primary lookup in Cloud Firestore (`users/{email}.googleDriveId`)
+      const fsUser = await getUserRecordFromFirestore(cleanEmail);
+      if (fsUser?.googleDriveId) {
+        const spreadsheetId = fsUser.googleDriveId.toString().trim();
+        await this.ensureSheetsExist(spreadsheetId, 'Personal');
+        return spreadsheetId;
+      }
+
       const adminSheetId = process.env.ADMIN_SPREADSHEET_ID;
       if (!adminSheetId) {
         console.error('[GoogleSheetsService] ADMIN_SPREADSHEET_ID is missing in environment variables');
@@ -89,19 +100,19 @@ export class GoogleSheetsService {
       // Ensure that 'User_Sheets' exists in the Admin Spreadsheet
       await this.ensureSheetsExist(adminSheetId, 'Admin');
 
-      // Look up userEmail in User_Sheets mapping
+      // 2. Fallback lookup in Admin User_Sheets mapping (and migrate to Firestore)
       const userSheetsRows = await this.getSheetData(adminSheetId, 'User_Sheets!A:B');
-      const cleanEmail = this.userEmail.trim().toLowerCase();
       
       const userMappingRow = userSheetsRows.slice(1).find(r => r[0]?.toString().trim().toLowerCase() === cleanEmail);
 
       if (userMappingRow && userMappingRow[1]) {
         const spreadsheetId = userMappingRow[1].toString();
+        await upsertUserRecordInFirestore(cleanEmail, { googleDriveId: spreadsheetId });
         await this.ensureSheetsExist(spreadsheetId, 'Personal');
         return spreadsheetId;
       }
 
-      // If not found in the Admin index, create a new Personal spreadsheet
+      // If not found in Firestore or Admin index, create a new Personal spreadsheet
       const targetName = `Manikutti_Personal_${this.userEmail}`;
       console.log(`[GoogleSheetsService] Mapped sheet not found. Creating new Personal sheet type=Personal userEmail=${this.userEmail}`);
       
@@ -126,7 +137,8 @@ export class GoogleSheetsService {
         await this.initializeSheets(spreadsheetId, 'Personal');
         await this.shareSheet(spreadsheetId, this.userEmail);
 
-        // Record the new mapping in the Admin spreadsheet index
+        // Persist in Firestore + Admin spreadsheet backup index
+        await upsertUserRecordInFirestore(cleanEmail, { googleDriveId: spreadsheetId });
         await this.appendRow(adminSheetId, 'User_Sheets', [this.userEmail, spreadsheetId]);
       }
       return spreadsheetId;
@@ -143,7 +155,7 @@ export class GoogleSheetsService {
     if (type === 'Personal') {
       requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals'];
+      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
     } else if (type === 'Admin') {
       requiredSheets = ['User_Sheets'];
     }
@@ -176,7 +188,7 @@ export class GoogleSheetsService {
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
       'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Base Salary', 'Current Salary']],
       'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan', 'Assigned To']],
-      'Invitations': [['Token', 'Email', 'Family Code', 'Spreadsheet ID', 'Status', 'Expiry Date']],
+      'Invitations': [['Token', 'Email', 'Family Code', 'Spreadsheet ID', 'Status', 'Expiry Date', 'Role Name']],
       'Calculator_History': [['Date', 'User', 'Expression', 'Result']],
       'Loans': [['Loan Name', 'Principal Amount', 'Monthly EMI', 'Assigned To', 'Family Code', 'Admin Email', 'Status']],
       'Loan_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Loan Name', 'Added By', 'Family Code']],
@@ -184,13 +196,14 @@ export class GoogleSheetsService {
       'User_Sheets': [['Email', 'Spreadsheet ID']],
       'Notifications': [['Date', 'Title', 'Message', 'Family Code', 'Type', 'Created By']],
       'HomeLoan_Ledger': [['Date', 'Total Payment', 'Principal', 'Interest', 'Balance', 'Family Code', 'Added By']],
+      'Roles_Permissions': [['Role Name', 'Permissions JSON', 'Updated At', 'Description']],
     };
 
     let defaultSheets: string[] = [];
     if (type === 'Personal') {
       defaultSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges'];
+      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
     } else if (type === 'Admin') {
       defaultSheets = ['User_Sheets'];
     }

@@ -32,6 +32,7 @@ import {
   Person as PersonIcon,
   PhoneAndroid as PhoneAndroidIcon,
   TrackChanges as TrackChangesIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
   Menu as MenuIcon
 } from '@mui/icons-material';
 
@@ -39,6 +40,7 @@ import { useAdminDashboard } from '../hooks/useAdminDashboard';
 import { OverviewTab } from '../components/admin/OverviewTab';
 import { ExpensesTab } from '../components/admin/ExpensesTab';
 import { MembersTab } from '../components/admin/MembersTab';
+import { RolesTab } from '../components/admin/RolesTab';
 import { LedgerTab } from '../components/admin/LedgerTab';
 import { RechargesTab } from '../components/admin/RechargesTab';
 import { GoalsTab } from '../components/admin/GoalsTab';
@@ -72,6 +74,9 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     setInviteName,
     invitePersonalSheetId,
     setInvitePersonalSheetId,
+    inviteRole,
+    setInviteRole,
+    availableRoles,
     inviteLoading,
     handleSendInvite,
 
@@ -245,6 +250,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
                 { id: 'goals', label: 'Lakshyam / ലക്ഷ്യം (Goals)', icon: <TrackChangesIcon /> },
                 { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
+                { id: 'roles', label: 'Roles & Feature Toggles', icon: <AdminPanelSettingsIcon /> },
                 { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
                 { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
                 { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
@@ -329,6 +335,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
                 { id: 'goals', label: 'Lakshyam / ലക്ഷ്യം (Goals)', icon: <TrackChangesIcon /> },
                 { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
+                { id: 'roles', label: 'Roles & Feature Toggles', icon: <AdminPanelSettingsIcon /> },
                 { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
                 { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
                 { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
@@ -440,6 +447,13 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
             {activeTab === 'goals' && (
               <GoalsTab />
             )}
+
+            {activeTab === 'roles' && (
+              <RolesTab
+                members={members}
+                onRefreshStats={fetchStats}
+              />
+            )}
           </>
         )}
       </Box>
@@ -481,6 +495,9 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
         setInviteName={setInviteName}
         invitePersonalSheetId={invitePersonalSheetId}
         setInvitePersonalSheetId={setInvitePersonalSheetId}
+        inviteRole={inviteRole}
+        setInviteRole={setInviteRole}
+        availableRoles={availableRoles}
         inviteLoading={inviteLoading}
         handleSendInvite={handleSendInvite}
 

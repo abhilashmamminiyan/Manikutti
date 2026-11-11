@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { GoogleSheetsService, FAMILY_SHEET_PREFIX } from '@/lib/googleSheets';
 import { sendInvitationEmail } from '@/lib/email';
 import { getAuthUserEmail } from '@/lib/authHelper';
+import { getFamilyRolesConfig, resolveEffectivePermissions, upsertUserRecordInFirestore } from '@/lib/featurePermissions';
 import jwt from 'jsonwebtoken';
 
 export async function GET(request: Request) {
@@ -43,7 +44,17 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ familyCode, members, role: userFamily[2] });
+    const roleName = userFamily[2]?.toString().trim() || 'Member';
+    const rolesConfig = await getFamilyRolesConfig(service, spreadsheetId, familyCode);
+    const permissions = resolveEffectivePermissions(rolesConfig, roleName);
+
+    return NextResponse.json({
+      familyCode,
+      members,
+      role: roleName,
+      aiEnabled: rolesConfig.aiEnabled,
+      permissions,
+    });
 
   } catch (error: unknown) {
     console.error('Error in family GET:', error);
@@ -57,7 +68,7 @@ export async function POST(request: Request) {
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome, baseSalary, currentSalary, personalSpreadsheetId } = body;
+    const { action, code, email: targetInviteEmail, name, token, targetEmail, nickname, monthlyIncome, baseSalary, currentSalary, personalSpreadsheetId, roleName: requestedRoleName } = body;
     const service = new GoogleSheetsService(email);
 
     if (action === 'create') {
@@ -101,6 +112,7 @@ export async function POST(request: Request) {
       
       // Retrieve spreadsheet name (mock or fallback since we don't query drive file names on client token)
       const displayName = name || 'Family';
+      const assignedRole = (requestedRoleName || 'Member').toString().trim() || 'Member';
 
       // Share the family spreadsheet and the assigned personal spreadsheet with the invitee
       const sharedFamily = await service.shareSheet(spreadsheetId, targetInviteEmail);
@@ -109,22 +121,30 @@ export async function POST(request: Request) {
       const sharedPersonal = await service.shareSheet(cleanPersonalId, targetInviteEmail);
       if (!sharedPersonal) return NextResponse.json({ error: 'Failed to share personal spreadsheet with invitee. Make sure you shared it with the Service Account email first!' }, { status: 500 });
 
-      // Generate token
+      // Generate token including assigned role
       const token = jwt.sign(
-        { spreadsheetId, familyCode, email: targetInviteEmail, personalSpreadsheetId: cleanPersonalId },
+        { spreadsheetId, familyCode, email: targetInviteEmail, personalSpreadsheetId: cleanPersonalId, roleName: assignedRole },
         process.env.NEXTAUTH_SECRET || 'secret',
         { expiresIn: '7d' }
       );
 
-      // Store invitation
+      // Store invitation (Col G = Role Name)
       await service.appendRow(spreadsheetId, 'Invitations', [
         token,
         targetInviteEmail,
         familyCode,
         cleanPersonalId,
         'Pending',
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        assignedRole
       ]);
+
+      // Pre-register invitee email + googleDriveId + role in Firestore
+      await upsertUserRecordInFirestore(targetInviteEmail, {
+        googleDriveId: cleanPersonalId,
+        familyCode,
+        roleName: assignedRole,
+      });
 
       // Send email
       const inviteLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/join-family?token=${token}`;
@@ -142,7 +162,7 @@ export async function POST(request: Request) {
 
       try {
         const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret') as any;
-        const { spreadsheetId: inviteSpreadsheetId, familyCode, email: inviteeEmail, personalSpreadsheetId } = decoded;
+        const { spreadsheetId: inviteSpreadsheetId, familyCode, email: inviteeEmail, personalSpreadsheetId, roleName: tokenRoleName } = decoded;
 
         if (inviteeEmail?.toLowerCase() !== email.toLowerCase()) {
           return NextResponse.json({ error: 'This invitation was sent to another email address.' }, { status: 403 });
@@ -154,17 +174,25 @@ export async function POST(request: Request) {
         }
         
         // Check if invitation exists and is pending
-        const invitations = await service.getSheetData(spreadsheetId, 'Invitations!A:F');
+        const invitations = await service.getSheetData(spreadsheetId, 'Invitations!A:G');
         const inviteIndex = invitations.findIndex(r => r[0] === token && r[4] === 'Pending');
         
         if (inviteIndex === -1) {
           return NextResponse.json({ error: 'Invitation not found or already accepted' }, { status: 400 });
         }
 
-        // Add to membership
-        await service.appendRow(spreadsheetId, 'Family_Members', [familyCode, email, 'Member', new Date().toISOString()]);
+        const acceptedRole = (tokenRoleName || invitations[inviteIndex][6] || 'Member').toString().trim() || 'Member';
 
-        // Record the new mapping in the Admin spreadsheet index
+        // Add to membership with assigned role
+        await service.appendRow(spreadsheetId, 'Family_Members', [familyCode, email, acceptedRole, new Date().toISOString()]);
+
+        // Record mapping in Firestore + Admin spreadsheet backup index
+        await upsertUserRecordInFirestore(email, {
+          googleDriveId: personalSpreadsheetId || undefined,
+          familyCode,
+          roleName: acceptedRole,
+        });
+
         const adminSheetId = process.env.ADMIN_SPREADSHEET_ID;
         if (adminSheetId && personalSpreadsheetId) {
           const userSheetsRows = await service.getSheetData(adminSheetId, 'User_Sheets!A:B');
@@ -178,7 +206,7 @@ export async function POST(request: Request) {
 
         // Update invitation status
         invitations[inviteIndex][4] = 'Accepted';
-        await service.updateSheetData(spreadsheetId, 'Invitations!A:F', invitations);
+        await service.updateSheetData(spreadsheetId, 'Invitations!A:G', invitations);
 
         return NextResponse.json({ success: true });
 

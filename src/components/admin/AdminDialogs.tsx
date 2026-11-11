@@ -55,6 +55,9 @@ interface AdminDialogsProps {
   setInviteName: (val: string) => void;
   invitePersonalSheetId: string;
   setInvitePersonalSheetId: (val: string) => void;
+  inviteRole: string;
+  setInviteRole: (val: string) => void;
+  availableRoles: string[];
   inviteLoading: boolean;
   handleSendInvite: () => void;
 
@@ -151,6 +154,9 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
   setInviteName,
   invitePersonalSheetId,
   setInvitePersonalSheetId,
+  inviteRole,
+  setInviteRole,
+  availableRoles,
   inviteLoading,
   handleSendInvite,
 
@@ -361,6 +367,25 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
               onChange={(e) => setInvitePersonalSheetId(e.target.value)}
               disabled={inviteLoading}
             />
+            <FormControl fullWidth>
+              <InputLabel id="invite-role-select-label">Assigned Mobile Role</InputLabel>
+              <Select
+                labelId="invite-role-select-label"
+                label="Assigned Mobile Role"
+                value={inviteRole || 'Member'}
+                onChange={(e) => setInviteRole(e.target.value as string)}
+                disabled={inviteLoading}
+              >
+                {(availableRoles && availableRoles.length > 0
+                  ? availableRoles
+                  : ['Member', 'Partner', 'Basic', 'Admin']
+                ).map((roleName) => (
+                  <MenuItem key={roleName} value={roleName}>
+                    {roleName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>

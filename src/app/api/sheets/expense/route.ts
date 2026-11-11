@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
+import { sendFcmToUsers } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request) {
   try {
@@ -134,6 +135,29 @@ export async function POST(request: Request) {
         familyCode || ''
       ];
       await service.appendRow(spreadsheetId, 'Family_Expenses', rowData);
+
+      // Dispatch FCM notification to other family members
+      const activeFamilyCode = (familyCode || userRow[0] || '').toString().trim();
+      const otherMemberEmails = members
+        .slice(1)
+        .filter((m) => m[0]?.toString().trim() === activeFamilyCode)
+        .map((m) => m[1]?.toString().trim().toLowerCase())
+        .filter((mEmail) => Boolean(mEmail) && mEmail !== email.toLowerCase());
+
+      if (otherMemberEmails.length > 0) {
+        const amtDisplay = Number(expense.amount || 0).toLocaleString('en-IN');
+        const actorName = email.split('@')[0];
+        await sendFcmToUsers(otherMemberEmails, {
+          title: `New Family Expense: ₹${amtDisplay}`,
+          body: `${actorName} logged ${expense.category || 'General'}${expense.note ? ` — ${expense.note}` : ''}`,
+          channelId: 'payment_channel',
+          data: {
+            type: 'family_expense',
+            familyCode: activeFamilyCode,
+            category: String(expense.category || ''),
+          },
+        });
+      }
     } else {
       const rowData = [
         expense.date || new Date().toISOString(),
