@@ -211,15 +211,18 @@ export default function HomeLoanPage() {
   };
 
   const confirmDelete = async () => {
-    if (!deletingId) return;
-    
+    if (deletingId === null) return;
+    const targetEntry = history.find(item => item.id === deletingId);
+    const idToDelete = deletingId;
+
     // Optimistic delete
-    setHistory(prev => prev.filter(item => item.id !== deletingId));
+    setHistory(prev => prev.filter(item => item.id !== idToDelete));
     setDeletingId(null);
     setToast({ open: true, message: 'Deleting entry...', type: 'info' });
     
     try {
-      const res = await fetch(`/api/sheets/home-loan?id=${deletingId}`, { method: 'DELETE' });
+      const dateQuery = targetEntry?.date ? `&date=${encodeURIComponent(targetEntry.date)}` : '';
+      const res = await fetch(`/api/sheets/home-loan?id=${idToDelete}${dateQuery}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       
       setToast({ open: true, message: 'Entry deleted successfully', type: 'success' });
@@ -231,31 +234,48 @@ export default function HomeLoanPage() {
     }
   };
 
-  // Auto-calculate Interest and Principal when Date changes (for new entries)
+  // Auto-calculate Interest and Principal when Date or Manual Rate changes (for new entries)
   useEffect(() => {
     if (!isAddModalOpen || editingId !== null || history.length === 0) return;
-    
-    const lastPayment = history[history.length - 1];
-    const prevBalance = lastPayment.balance;
-    const days = (new Date(date).getTime() - new Date(lastPayment.date).getTime()) / (1000 * 60 * 60 * 24);
-    
-    if (days > 0) {
-      let rate = 0.12; 
-      if (history.length > 1) {
+
+    const selectedTime = new Date(`${date}T00:00:00`).getTime();
+    if (Number.isNaN(selectedTime)) return;
+
+    const priorEntries = history.filter((item) => new Date(`${item.date}T00:00:00`).getTime() < selectedTime);
+    const baseEntry = priorEntries.length > 0 ? priorEntries[priorEntries.length - 1] : history[history.length - 1];
+    const prevBalance = baseEntry.balance;
+    const days = Math.round((selectedTime - new Date(`${baseEntry.date}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24));
+
+    if (days > 0 && prevBalance > 0) {
+      let rate = 0.085;
+      const overrideRate = parseFloat(manualInterestRate);
+      if (Number.isFinite(overrideRate) && overrideRate > 0) {
+        rate = overrideRate / 100;
+      } else if (history.length > 1) {
+        const lastPayment = history[history.length - 1];
         const prev = history[history.length - 2];
-        const daysBetween = (new Date(lastPayment.date).getTime() - new Date(prev.date).getTime()) / (1000 * 60 * 60 * 24);
-        if (daysBetween > 0) {
+        const daysBetween = Math.round(
+          (new Date(`${lastPayment.date}T00:00:00`).getTime() - new Date(`${prev.date}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (daysBetween > 0 && prev.balance > 0) {
           rate = (lastPayment.interest * 365) / (prev.balance * daysBetween);
         }
+      } else {
+        const lastPayment = history[history.length - 1];
+        const inferredPrevBal = lastPayment.balance + lastPayment.principal;
+        if (inferredPrevBal > 0 && lastPayment.interest > 0) {
+          rate = (lastPayment.interest * 12) / inferredPrevBal;
+        }
       }
-      
+
       const calculatedInterest = Math.round(prevBalance * rate * (days / 365));
-      const defaultTotal = 12000;
-      
+      const baseTotal = parseFloat(plannedEmi) || baseEntry.totalPayment || 12000;
+      const calculatedPrincipal = Math.max(0, Math.round(baseTotal - calculatedInterest));
+
       setInterest(calculatedInterest.toString());
-      setPrincipal((defaultTotal - calculatedInterest).toString());
+      setPrincipal(calculatedPrincipal.toString());
     }
-  }, [date, isAddModalOpen, editingId, history]);
+  }, [date, manualInterestRate, plannedEmi, isAddModalOpen, editingId, history]);
 
   // Auto-calculate Total Payment when Principal or Interest changes
   useEffect(() => {

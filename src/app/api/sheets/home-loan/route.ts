@@ -28,17 +28,23 @@ export async function GET(request: Request) {
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
     const rows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
-    const items = rows.slice(1)
-      .map((row, index) => ({
-        date: String(row[0] ?? '').trim(),
-        totalPayment: parseLoanAmount(row[1]),
-        principal: parseLoanAmount(row[2]),
-        interest: parseLoanAmount(row[3]),
-        balance: parseLoanAmount(row[4]),
-        familyCode: String(row[5] ?? '').trim(),
-        addedBy: String(row[6] ?? '').trim(),
-        id: index + 1
-      }))
+    const hasHeader = String(rows[0]?.[0] ?? '').trim().toLowerCase() === 'date';
+    const startIdx = hasHeader ? 1 : 0;
+
+    const items = rows.slice(startIdx)
+      .map((row, idx) => {
+        const sheetZeroIdx = idx + startIdx;
+        return {
+          date: String(row[0] ?? '').trim(),
+          totalPayment: parseLoanAmount(row[1]),
+          principal: parseLoanAmount(row[2]),
+          interest: parseLoanAmount(row[3]),
+          balance: parseLoanAmount(row[4]),
+          familyCode: String(row[5] ?? '').trim(),
+          addedBy: String(row[6] ?? '').trim(),
+          id: sheetZeroIdx
+        };
+      })
       .filter(r => (r.date || r.totalPayment > 0 || r.familyCode) && normalizeFamilyCode(r.familyCode) === targetCode);
 
     return NextResponse.json({ items });
@@ -85,12 +91,23 @@ export async function PUT(request: Request) {
     const { id, date, totalPayment, principal, interest, balance, familyCode } = await request.json();
     if (id === undefined) return NextResponse.json({ error: 'ID (row index) required' }, { status: 400 });
 
+    const rowIdx = typeof id === 'number' ? id : parseInt(String(id), 10);
+    if (!Number.isInteger(rowIdx) || rowIdx < 0) {
+      return NextResponse.json({ error: 'Valid row ID required' }, { status: 400 });
+    }
+
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ success: false });
 
-    // The id is the 0-indexed row number in the sheet. So id + 1 is the 1-indexed row number for A1 notation
-    const range = `HomeLoan_Ledger!A${id + 1}:G${id + 1}`;
+    const existingRows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
+    const hasHeader = String(existingRows[0]?.[0] ?? '').trim().toLowerCase() === 'date';
+    if (hasHeader && rowIdx < 1) {
+      return NextResponse.json({ error: 'Cannot overwrite header row' }, { status: 400 });
+    }
+
+    // rowIdx is 0-indexed in sheet values; A1 notation is 1-indexed (rowIdx + 1)
+    const range = `HomeLoan_Ledger!A${rowIdx + 1}:G${rowIdx + 1}`;
     await service.updateRow(spreadsheetId, range, [
       date,
       totalPayment,
@@ -116,15 +133,32 @@ export async function DELETE(request: Request) {
 
     const url = new URL(request.url);
     const idParam = url.searchParams.get('id');
+    const expectedDate = url.searchParams.get('date')?.trim();
     if (!idParam) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
     const id = parseInt(idParam, 10);
+    if (!Number.isInteger(id) || id < 0) {
+      return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+    }
+
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ success: false });
 
-    // id is the 0-indexed row index
-    await service.deleteRow(spreadsheetId, 'HomeLoan_Ledger', id);
+    const rows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
+    const hasHeader = String(rows[0]?.[0] ?? '').trim().toLowerCase() === 'date';
+    if (hasHeader && id < 1) {
+      return NextResponse.json({ error: 'Cannot delete header row' }, { status: 400 });
+    }
+    if (id >= rows.length) {
+      return NextResponse.json({ error: 'Entry not found (sheet changed, please refresh)' }, { status: 404 });
+    }
+    if (expectedDate && String(rows[id]?.[0] ?? '').trim() !== expectedDate) {
+      return NextResponse.json({ error: 'Entry mismatch (please refresh and retry)' }, { status: 409 });
+    }
+
+    // id is the 0-indexed sheet row index; deleteRow expects 1-indexed A1 row number
+    await service.deleteRow(spreadsheetId, 'HomeLoan_Ledger', id + 1);
 
     return NextResponse.json({ success: true });
 
