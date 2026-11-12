@@ -173,7 +173,7 @@ export class GoogleSheetsService {
       } else if (type === 'Family') {
         requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
       } else if (type === 'Admin') {
-        requiredSheets = ['User_Sheets'];
+        requiredSheets = ['User_Sheets', 'Error_Logs'];
       }
 
       const missingSheets = requiredSheets.filter(s => !existingSheets.includes(s));
@@ -218,6 +218,7 @@ export class GoogleSheetsService {
       'Loan_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Loan Name', 'Added By', 'Family Code']],
       'Loan_Repayments': [['Date', 'Amount', 'Loan Name', 'Paid By', 'Family Code']],
       'User_Sheets': [['Email', 'Spreadsheet ID']],
+      'Error_Logs': [['Timestamp', 'Source', 'Severity', 'ScreenOrRoute', 'Method', 'HTTPStatus', 'Message', 'StackTrace', 'UserEmail', 'FamilyCode', 'AppVersion', 'DeviceInfo']],
       'Notifications': [['Date', 'Title', 'Message', 'Family Code', 'Type', 'Created By']],
       'HomeLoan_Ledger': [['Date', 'Total Payment', 'Principal', 'Interest', 'Balance', 'Family Code', 'Added By']],
       'Roles_Permissions': [['Role Name', 'Permissions JSON', 'Updated At', 'Description']],
@@ -229,7 +230,7 @@ export class GoogleSheetsService {
     } else if (type === 'Family') {
       defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
     } else if (type === 'Admin') {
-      defaultSheets = ['User_Sheets'];
+      defaultSheets = ['User_Sheets', 'Error_Logs'];
     }
 
     const sheetsToInit = specificSheets || defaultSheets;

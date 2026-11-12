@@ -1,6 +1,20 @@
 import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
+import { logErrorTelemetry } from '@/lib/errorTelemetry';
+
+function reportHomeLoanFailure(method: string, error: any) {
+  console.error(`Error in Home Loan ${method}:`, error);
+  void logErrorTelemetry({
+    source: 'web-api',
+    severity: 'error',
+    screenOrRoute: '/api/sheets/home-loan',
+    method,
+    httpStatus: 500,
+    message: error?.message || String(error),
+    stackTraceSnippet: error?.stack || '',
+  });
+}
 
 function parseLoanAmount(val: unknown): number {
   if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
@@ -50,7 +64,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ items });
 
   } catch (error: any) {
-    console.error('Error in Home Loan GET:', error);
+    reportHomeLoanFailure('GET', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -78,7 +92,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('Error in Home Loan POST:', error);
+    reportHomeLoanFailure('POST', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -121,7 +135,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('Error in Home Loan PUT:', error);
+    reportHomeLoanFailure('PUT', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -163,7 +177,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('Error in Home Loan DELETE:', error);
+    reportHomeLoanFailure('DELETE', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

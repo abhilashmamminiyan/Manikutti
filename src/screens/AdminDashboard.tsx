@@ -33,6 +33,7 @@ import {
   PhoneAndroid as PhoneAndroidIcon,
   TrackChanges as TrackChangesIcon,
   AdminPanelSettings as AdminPanelSettingsIcon,
+  BugReport as BugReportIcon,
   Menu as MenuIcon
 } from '@mui/icons-material';
 
@@ -44,7 +45,21 @@ import { RolesTab } from '../components/admin/RolesTab';
 import { LedgerTab } from '../components/admin/LedgerTab';
 import { RechargesTab } from '../components/admin/RechargesTab';
 import { GoalsTab } from '../components/admin/GoalsTab';
+import { DiagnosticsTab } from '../components/admin/DiagnosticsTab';
 import { AdminDialogs } from '../components/admin/AdminDialogs';
+
+const ADMIN_NAV_TABS = [
+  { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
+  { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
+  { id: 'goals', label: 'Lakshyam / ലക്ഷ്യം (Goals)', icon: <TrackChangesIcon /> },
+  { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
+  { id: 'roles', label: 'Roles & Feature Toggles', icon: <AdminPanelSettingsIcon /> },
+  { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
+  { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
+  { id: 'diagnostics', label: 'Error & Crash Logs', icon: <BugReportIcon /> },
+  { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
+  { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> },
+] as const;
 
 const drawerWidth = 260;
 
@@ -245,17 +260,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
           <Toolbar />
           <Box sx={{ overflow: 'auto', mt: 2 }}>
             <List>
-              {[
-                { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
-                { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
-                { id: 'goals', label: 'Lakshyam / ലക്ഷ്യം (Goals)', icon: <TrackChangesIcon /> },
-                { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
-                { id: 'roles', label: 'Roles & Feature Toggles', icon: <AdminPanelSettingsIcon /> },
-                { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
-                { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
-                { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
-                { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
-              ].map((tab) => {
+              {ADMIN_NAV_TABS.map((tab) => {
                 const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
                 return (
                   <ListItem key={tab.id} disablePadding>
@@ -330,17 +335,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
           <Toolbar />
           <Box sx={{ overflow: 'auto', mt: 2 }}>
             <List>
-              {[
-                { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
-                { id: 'expenses', label: 'Family Expenses', icon: <ReceiptIcon /> },
-                { id: 'goals', label: 'Lakshyam / ലക്ഷ്യം (Goals)', icon: <TrackChangesIcon /> },
-                { id: 'users', label: 'User Sheets Directory', icon: <FolderSharedIcon /> },
-                { id: 'roles', label: 'Roles & Feature Toggles', icon: <AdminPanelSettingsIcon /> },
-                { id: 'loans', label: 'Bills & Loans Tracker', icon: <PaymentsIcon /> },
-                { id: 'recharges', label: 'Mobile Recharges', icon: <PhoneAndroidIcon /> },
-                { id: 'home-loan', label: 'Home Loan Dashboard', icon: <AccountBalanceIcon /> },
-                { id: 'profile', label: 'Profile Settings', icon: <PersonIcon /> }
-              ].map((tab) => {
+              {ADMIN_NAV_TABS.map((tab) => {
                 const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
                 return (
                   <ListItem key={tab.id} disablePadding>
@@ -454,6 +449,8 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
                 onRefreshStats={fetchStats}
               />
             )}
+
+            {activeTab === 'diagnostics' && <DiagnosticsTab />}
           </>
         )}
       </Box>
