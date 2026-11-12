@@ -55,6 +55,10 @@ interface AdminDialogsProps {
   setLoanPayerName?: (val: string) => void;
   loanShareRecipient?: string;
   setLoanShareRecipient?: (val: string) => void;
+  loanTenureMonths?: string;
+  setLoanTenureMonths?: (val: string) => void;
+  loanPaidMonths?: string;
+  setLoanPaidMonths?: (val: string) => void;
   addLoanLoading: boolean;
   handleCreateLoan: () => void;
 
@@ -112,6 +116,10 @@ interface AdminDialogsProps {
   setEditLoanPayerName?: (val: string) => void;
   editLoanShareRecipient?: string;
   setEditLoanShareRecipient?: (val: string) => void;
+  editLoanTenureMonths?: string;
+  setEditLoanTenureMonths?: (val: string) => void;
+  editLoanPaidMonths?: string;
+  setEditLoanPaidMonths?: (val: string) => void;
   editLoanLoading: boolean;
   handleEditLoan: () => void;
 
@@ -199,6 +207,10 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
   setLoanPayerName,
   loanShareRecipient = 'Nisha',
   setLoanShareRecipient,
+  loanTenureMonths = '',
+  setLoanTenureMonths,
+  loanPaidMonths = '',
+  setLoanPaidMonths,
   addLoanLoading,
   handleCreateLoan,
 
@@ -253,6 +265,10 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
   setEditLoanPayerName,
   editLoanShareRecipient = 'Nisha',
   setEditLoanShareRecipient,
+  editLoanTenureMonths = '',
+  setEditLoanTenureMonths,
+  editLoanPaidMonths = '',
+  setEditLoanPaidMonths,
   editLoanLoading,
   handleEditLoan,
 
@@ -369,6 +385,66 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
         <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Add Loan & EMI</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
+                Quick Fill From Repayment Schedules:
+              </Typography>
+              {[
+                {
+                  label: 'Bajaj PL (₹7,755)',
+                  name: 'Bajaj PL (P595PRB70267501)',
+                  amount: '215378',
+                  emi: '7755',
+                  rate: '30',
+                  start: '2026-01-02',
+                  balance: '188820',
+                  tenure: '48',
+                  paid: '10',
+                },
+                {
+                  label: 'Bajaj Lifestyle 0% (₹3,546)',
+                  name: 'Bajaj Lifestyle (P595PSC90568277)',
+                  amount: '28369',
+                  emi: '3546',
+                  rate: '0',
+                  start: '2026-04-18',
+                  balance: '3547',
+                  tenure: '8',
+                  paid: '7',
+                },
+                {
+                  label: 'Bajaj Lifestyle 23.58% (₹4,834)',
+                  name: 'Bajaj Lifestyle (P595PSC89289290)',
+                  amount: '78000',
+                  emi: '4834',
+                  rate: '23.58',
+                  start: '2026-04-13',
+                  balance: '31325',
+                  tenure: '18',
+                  paid: '7',
+                },
+              ].map((preset) => (
+                <Button
+                  key={preset.label}
+                  size="small"
+                  variant="outlined"
+                  disabled={addLoanLoading}
+                  sx={{ fontSize: '0.7rem', textTransform: 'none', py: 0.25, px: 1 }}
+                  onClick={() => {
+                    setLoanName(preset.name);
+                    setLoanAmount(preset.amount);
+                    setLoanEMI(preset.emi);
+                    setLoanInterestRate?.(preset.rate);
+                    setLoanStartDate?.(preset.start);
+                    setLoanBalanceRemaining?.(preset.balance);
+                    setLoanTenureMonths?.(preset.tenure);
+                    setLoanPaidMonths?.(preset.paid);
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </Box>
             <TextField 
               label="Loan Name" 
               fullWidth 
@@ -427,7 +503,7 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 value={loanStartDate}
                 onChange={(e) => setLoanStartDate?.(e.target.value)}
                 disabled={addLoanLoading}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
             </Box>
             <TextField
@@ -439,6 +515,26 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
               disabled={addLoanLoading}
               placeholder="Leave blank to default to Principal"
             />
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Tenure (Months)"
+                type="number"
+                fullWidth
+                value={loanTenureMonths}
+                onChange={(e) => setLoanTenureMonths?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="e.g. 48"
+              />
+              <TextField
+                label="Paid Months"
+                type="number"
+                fullWidth
+                value={loanPaidMonths}
+                onChange={(e) => setLoanPaidMonths?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="e.g. 10"
+              />
+            </Box>
             <Box sx={{ display: 'flex', gap: 1.5 }}>
               <TextField
                 label="EMI Paid To (Payer)"
@@ -681,7 +777,7 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 value={editLoanStartDate}
                 onChange={(e) => setEditLoanStartDate?.(e.target.value)}
                 disabled={editLoanLoading}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
             </Box>
             <TextField
@@ -692,6 +788,24 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
               onChange={(e) => setEditLoanBalanceRemaining?.(e.target.value)}
               disabled={editLoanLoading}
             />
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Tenure (Months)"
+                type="number"
+                fullWidth
+                value={editLoanTenureMonths}
+                onChange={(e) => setEditLoanTenureMonths?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+              <TextField
+                label="Paid Months"
+                type="number"
+                fullWidth
+                value={editLoanPaidMonths}
+                onChange={(e) => setEditLoanPaidMonths?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+            </Box>
             <Box sx={{ display: 'flex', gap: 1.5 }}>
               <TextField
                 label="EMI Paid To (Payer)"
@@ -810,7 +924,7 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 value={hlStartDate}
                 onChange={(e) => setHlStartDate?.(e.target.value)}
                 disabled={hlConfigLoading}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
                 label="Monthly EMI (₹)"
@@ -863,7 +977,7 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 value={hlDueDay}
                 onChange={(e) => setHlDueDay?.(e.target.value)}
                 disabled={hlConfigLoading}
-                inputProps={{ min: 1, max: 28 }}
+                slotProps={{ htmlInput: { min: 1, max: 28 } }}
               />
               <TextField
                 label="EMI Paid To (e.g. Ajesh)"

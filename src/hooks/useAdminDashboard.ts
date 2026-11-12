@@ -35,6 +35,8 @@ export function useAdminDashboard() {
   const [loanBalanceRemaining, setLoanBalanceRemaining] = useState('');
   const [loanPayerName, setLoanPayerName] = useState('Ajesh');
   const [loanShareRecipient, setLoanShareRecipient] = useState('Nisha');
+  const [loanTenureMonths, setLoanTenureMonths] = useState('');
+  const [loanPaidMonths, setLoanPaidMonths] = useState('');
   const [addLoanLoading, setAddLoanLoading] = useState(false);
 
   // Edit Dues Dialog States
@@ -60,6 +62,8 @@ export function useAdminDashboard() {
   const [editLoanBalanceRemaining, setEditLoanBalanceRemaining] = useState('');
   const [editLoanPayerName, setEditLoanPayerName] = useState('Ajesh');
   const [editLoanShareRecipient, setEditLoanShareRecipient] = useState('Nisha');
+  const [editLoanTenureMonths, setEditLoanTenureMonths] = useState('');
+  const [editLoanPaidMonths, setEditLoanPaidMonths] = useState('');
   const [editLoanLoading, setEditLoanLoading] = useState(false);
 
   // Home Loan Configuration Dialog States
@@ -216,6 +220,8 @@ export function useAdminDashboard() {
           interestRate: parseFloat(loanInterestRate) || 0,
           startDate: loanStartDate || '',
           balanceRemaining: parsedBalance,
+          tenureMonths: parseInt(loanTenureMonths, 10) || 0,
+          paidMonths: parseInt(loanPaidMonths, 10) || 0,
           payerName: loanPayerName || 'Ajesh',
           shareRecipient: loanShareRecipient || 'Nisha',
         })
@@ -231,6 +237,8 @@ export function useAdminDashboard() {
       setLoanInterestRate('');
       setLoanStartDate('2026-01-01');
       setLoanBalanceRemaining('');
+      setLoanTenureMonths('');
+      setLoanPaidMonths('');
       setLoanPayerName('Ajesh');
       setLoanShareRecipient('Nisha');
       fetchStats();
@@ -311,6 +319,8 @@ export function useAdminDashboard() {
     setEditLoanInterestRate((loan.interestRate ?? 0).toString());
     setEditLoanStartDate(loan.startDate || '2026-01-01');
     setEditLoanBalanceRemaining((loan.balanceRemaining ?? loan.amount).toString());
+    setEditLoanTenureMonths((loan.tenureMonths ?? 0).toString());
+    setEditLoanPaidMonths((loan.paidMonths ?? 0).toString());
     setEditLoanPayerName(loan.payerName || 'Ajesh');
     setEditLoanShareRecipient(loan.shareRecipient || 'Nisha');
     setEditLoanDialogOpen(true);
@@ -339,6 +349,8 @@ export function useAdminDashboard() {
           interestRate: parseFloat(editLoanInterestRate) || 0,
           startDate: editLoanStartDate || '',
           balanceRemaining: parsedBalance,
+          tenureMonths: parseInt(editLoanTenureMonths, 10) || 0,
+          paidMonths: parseInt(editLoanPaidMonths, 10) || 0,
           payerName: editLoanPayerName || 'Ajesh',
           shareRecipient: editLoanShareRecipient || 'Nisha',
         })
@@ -567,6 +579,10 @@ export function useAdminDashboard() {
     setLoanPayerName,
     loanShareRecipient,
     setLoanShareRecipient,
+    loanTenureMonths,
+    setLoanTenureMonths,
+    loanPaidMonths,
+    setLoanPaidMonths,
     addLoanLoading,
     handleCreateLoan,
 
@@ -613,6 +629,10 @@ export function useAdminDashboard() {
     setEditLoanPayerName,
     editLoanShareRecipient,
     setEditLoanShareRecipient,
+    editLoanTenureMonths,
+    setEditLoanTenureMonths,
+    editLoanPaidMonths,
+    setEditLoanPaidMonths,
     editLoanLoading,
     handleOpenEditLoan,
     handleEditLoan,

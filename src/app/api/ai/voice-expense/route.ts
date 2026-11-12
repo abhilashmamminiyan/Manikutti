@@ -100,17 +100,9 @@ function parseLocally(query: string, defaultBank: string = 'SBI'): ParsedVoiceEx
     amount = parseFloat(numMatch[1]);
   }
 
-  // Detect Type
+  // Detect Type (Family ledger is EMI & Home Loan only, so route voice entries to Expense/Income)
   let type: 'Expense' | 'Income' | 'Family' = 'Expense';
   if (
-    lower.includes('family') ||
-    lower.includes('കുടുംബം') ||
-    lower.includes('veettil') ||
-    lower.includes('വീട്ടിൽ') ||
-    lower.includes('koottaayi')
-  ) {
-    type = 'Family';
-  } else if (
     lower.includes('salary') ||
     lower.includes('income') ||
     lower.includes('kittiyathu') ||
@@ -416,9 +408,9 @@ Return ONLY a pure JSON object with these exact keys:
       finalCategory = 'Other';
     }
 
-    // Validate type
+    // Validate type (Family ledger is EMI & Home Loan only)
     let finalType: 'Expense' | 'Income' | 'Family' = 'Expense';
-    if (['Expense', 'Income', 'Family'].includes(parsed.type)) {
+    if (['Expense', 'Income'].includes(parsed.type)) {
       finalType = parsed.type;
     }
 

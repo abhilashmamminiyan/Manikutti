@@ -70,38 +70,38 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
         </Box>
 
         {homeLoanConfig ? (
-          <Grid container spacing={2}>
-            <Grid item xs={6} sm={3} md={2}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2 }}>
+            <Box>
               <Typography variant="caption" color="text.secondary">Interest Rate</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">{homeLoanConfig.interestRate}% p.a.</Typography>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{homeLoanConfig.interestRate}% p.a.</Typography>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">Started Date</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">{homeLoanConfig.startDate || '—'}</Typography>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{homeLoanConfig.startDate || '—'}</Typography>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">Balance Remaining</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color="#ef4444">
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#ef4444' }}>
                 ₹{Number(homeLoanConfig.balanceRemaining || 0).toLocaleString('en-IN')}
               </Typography>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">Monthly EMI</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color="#006972">
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#006972' }}>
                 ₹{Number(homeLoanConfig.monthlyEMI || 0).toLocaleString('en-IN')}
               </Typography>
-            </Grid>
-            <Grid item xs={6} sm={6} md={2}>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">EMI Payer / Share</Typography>
-              <Typography variant="body2" fontWeight="bold">
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 {homeLoanConfig.payerName || 'Ajesh'} • {homeLoanConfig.shareRecipient || 'Nisha'}
               </Typography>
-            </Grid>
-            <Grid item xs={6} sm={6} md={2}>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">Due Before</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">Day {homeLoanConfig.dueDay || 10}</Typography>
-            </Grid>
-          </Grid>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Day {homeLoanConfig.dueDay || 10}</Typography>
+            </Box>
+          </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">
             Home Loan configuration not set yet. Click &quot;Configure Home Loan&quot; to enter interest rate, start date from January, and current remaining balance.
@@ -216,7 +216,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         <TableCell>
                           <Typography sx={{ fontWeight: 'bold' }}>{row.name}</Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {row.interestRate ? `${row.interestRate}%` : '0%'} • Start {row.startDate || 'N/A'} • Bal ₹{Number(row.balanceRemaining ?? row.amount ?? 0).toLocaleString('en-IN')}
+                            {row.interestRate ? `${row.interestRate}%` : '0%'} • Start {row.startDate || 'N/A'} • {row.paidMonths || 0}/{row.tenureMonths || '—'} EMIs • Bal ₹{Number(row.balanceRemaining ?? row.amount ?? 0).toLocaleString('en-IN')}
                           </Typography>
                         </TableCell>
                         <TableCell>

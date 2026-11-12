@@ -130,6 +130,10 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     setLoanPayerName,
     loanShareRecipient,
     setLoanShareRecipient,
+    loanTenureMonths,
+    setLoanTenureMonths,
+    loanPaidMonths,
+    setLoanPaidMonths,
     addLoanLoading,
     handleCreateLoan,
 
@@ -176,6 +180,10 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     setEditLoanPayerName,
     editLoanShareRecipient,
     setEditLoanShareRecipient,
+    editLoanTenureMonths,
+    setEditLoanTenureMonths,
+    editLoanPaidMonths,
+    setEditLoanPaidMonths,
     editLoanLoading,
     handleOpenEditLoan,
     handleEditLoan,
@@ -539,6 +547,10 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
         setLoanPayerName={setLoanPayerName}
         loanShareRecipient={loanShareRecipient}
         setLoanShareRecipient={setLoanShareRecipient}
+        loanTenureMonths={loanTenureMonths}
+        setLoanTenureMonths={setLoanTenureMonths}
+        loanPaidMonths={loanPaidMonths}
+        setLoanPaidMonths={setLoanPaidMonths}
         addLoanLoading={addLoanLoading}
         handleCreateLoan={handleCreateLoan}
 
@@ -593,6 +605,10 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
         setEditLoanPayerName={setEditLoanPayerName}
         editLoanShareRecipient={editLoanShareRecipient}
         setEditLoanShareRecipient={setEditLoanShareRecipient}
+        editLoanTenureMonths={editLoanTenureMonths}
+        setEditLoanTenureMonths={setEditLoanTenureMonths}
+        editLoanPaidMonths={editLoanPaidMonths}
+        setEditLoanPaidMonths={setEditLoanPaidMonths}
         editLoanLoading={editLoanLoading}
         handleEditLoan={handleEditLoan}
 
