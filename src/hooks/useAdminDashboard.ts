@@ -30,6 +30,11 @@ export function useAdminDashboard() {
   const [loanAmount, setLoanAmount] = useState('');
   const [loanEMI, setLoanEMI] = useState('');
   const [loanAssignedTo, setLoanAssignedTo] = useState('');
+  const [loanInterestRate, setLoanInterestRate] = useState('');
+  const [loanStartDate, setLoanStartDate] = useState('2026-01-01');
+  const [loanBalanceRemaining, setLoanBalanceRemaining] = useState('');
+  const [loanPayerName, setLoanPayerName] = useState('Ajesh');
+  const [loanShareRecipient, setLoanShareRecipient] = useState('Nisha');
   const [addLoanLoading, setAddLoanLoading] = useState(false);
 
   // Edit Dues Dialog States
@@ -50,7 +55,25 @@ export function useAdminDashboard() {
   const [editLoanEMI, setEditLoanEMI] = useState('');
   const [editLoanAssignedTo, setEditLoanAssignedTo] = useState('');
   const [editLoanStatus, setEditLoanStatus] = useState('Active');
+  const [editLoanInterestRate, setEditLoanInterestRate] = useState('');
+  const [editLoanStartDate, setEditLoanStartDate] = useState('');
+  const [editLoanBalanceRemaining, setEditLoanBalanceRemaining] = useState('');
+  const [editLoanPayerName, setEditLoanPayerName] = useState('Ajesh');
+  const [editLoanShareRecipient, setEditLoanShareRecipient] = useState('Nisha');
   const [editLoanLoading, setEditLoanLoading] = useState(false);
+
+  // Home Loan Configuration Dialog States
+  const [homeLoanConfigDialogOpen, setHomeLoanConfigDialogOpen] = useState(false);
+  const [hlPrincipal, setHlPrincipal] = useState('');
+  const [hlInterestRate, setHlInterestRate] = useState('');
+  const [hlStartDate, setHlStartDate] = useState('2026-01-01');
+  const [hlBalanceRemaining, setHlBalanceRemaining] = useState('');
+  const [hlMonthlyEMI, setHlMonthlyEMI] = useState('');
+  const [hlDueDay, setHlDueDay] = useState('10');
+  const [hlPayerName, setHlPayerName] = useState('Ajesh');
+  const [hlShareRecipient, setHlShareRecipient] = useState('Nisha');
+  const [hlSyncBaseline, setHlSyncBaseline] = useState(true);
+  const [hlConfigLoading, setHlConfigLoading] = useState(false);
 
   // Edit Expense Dialog States
   const [editExpenseDialogOpen, setEditExpenseDialogOpen] = useState(false);
@@ -178,16 +201,23 @@ export function useAdminDashboard() {
     }
     setAddLoanLoading(true);
     try {
+      const parsedAmount = parseFloat(loanAmount);
+      const parsedBalance = loanBalanceRemaining ? parseFloat(loanBalanceRemaining) : parsedAmount;
       const res = await fetch('/api/sheets/loans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'addLoan',
           loanName,
-          amount: parseFloat(loanAmount),
+          amount: parsedAmount,
           monthlyEMI: parseFloat(loanEMI),
           assignedTo: loanAssignedTo,
-          familyCode: statsData?.familyCode
+          familyCode: statsData?.familyCode,
+          interestRate: parseFloat(loanInterestRate) || 0,
+          startDate: loanStartDate || '',
+          balanceRemaining: parsedBalance,
+          payerName: loanPayerName || 'Ajesh',
+          shareRecipient: loanShareRecipient || 'Nisha',
         })
       });
       const data = await res.json();
@@ -198,6 +228,11 @@ export function useAdminDashboard() {
       setLoanAmount('');
       setLoanEMI('');
       setLoanAssignedTo('');
+      setLoanInterestRate('');
+      setLoanStartDate('2026-01-01');
+      setLoanBalanceRemaining('');
+      setLoanPayerName('Ajesh');
+      setLoanShareRecipient('Nisha');
       fetchStats();
     } catch (e: any) {
       alert(e.message || 'Failed to add loan');
@@ -273,6 +308,11 @@ export function useAdminDashboard() {
     setEditLoanEMI(loan.monthlyEMI.toString());
     setEditLoanAssignedTo(loan.assignedTo);
     setEditLoanStatus(loan.status);
+    setEditLoanInterestRate((loan.interestRate ?? 0).toString());
+    setEditLoanStartDate(loan.startDate || '2026-01-01');
+    setEditLoanBalanceRemaining((loan.balanceRemaining ?? loan.amount).toString());
+    setEditLoanPayerName(loan.payerName || 'Ajesh');
+    setEditLoanShareRecipient(loan.shareRecipient || 'Nisha');
     setEditLoanDialogOpen(true);
   };
 
@@ -284,16 +324,23 @@ export function useAdminDashboard() {
     }
     setEditLoanLoading(true);
     try {
+      const parsedAmount = parseFloat(editLoanAmount);
+      const parsedBalance = editLoanBalanceRemaining ? parseFloat(editLoanBalanceRemaining) : parsedAmount;
       const res = await fetch('/api/sheets/loans', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingLoan.id,
           name: editLoanName,
-          amount: parseFloat(editLoanAmount),
+          amount: parsedAmount,
           monthlyEMI: parseFloat(editLoanEMI),
           assignedTo: editLoanAssignedTo,
-          status: editLoanStatus
+          status: editLoanStatus,
+          interestRate: parseFloat(editLoanInterestRate) || 0,
+          startDate: editLoanStartDate || '',
+          balanceRemaining: parsedBalance,
+          payerName: editLoanPayerName || 'Ajesh',
+          shareRecipient: editLoanShareRecipient || 'Nisha',
         })
       });
       const data = await res.json();
@@ -305,6 +352,56 @@ export function useAdminDashboard() {
       alert(e.message || 'Failed to update loan');
     } finally {
       setEditLoanLoading(false);
+    }
+  };
+
+  const handleOpenHomeLoanConfig = () => {
+    const cfg = statsData?.homeLoanConfig;
+    setHlPrincipal(cfg?.principalAmount ? String(cfg.principalAmount) : '');
+    setHlInterestRate(cfg?.interestRate ? String(cfg.interestRate) : '');
+    setHlStartDate(cfg?.startDate || '2026-01-01');
+    setHlBalanceRemaining(cfg?.balanceRemaining ? String(cfg.balanceRemaining) : '');
+    setHlMonthlyEMI(cfg?.monthlyEMI ? String(cfg.monthlyEMI) : '');
+    setHlDueDay(cfg?.dueDay ? String(cfg.dueDay) : '10');
+    setHlPayerName(cfg?.payerName || 'Ajesh');
+    setHlShareRecipient(cfg?.shareRecipient || 'Nisha');
+    setHlSyncBaseline(true);
+    setHomeLoanConfigDialogOpen(true);
+  };
+
+  const handleSaveHomeLoanConfig = async () => {
+    if (!hlBalanceRemaining || !hlInterestRate || !hlStartDate || !hlMonthlyEMI) {
+      alert('Please fill interest rate, start date, monthly EMI, and current balance remaining.');
+      return;
+    }
+    setHlConfigLoading(true);
+    try {
+      const res = await fetch('/api/sheets/home-loan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveConfig',
+          familyCode: statsData?.familyCode,
+          principalAmount: parseFloat(hlPrincipal) || parseFloat(hlBalanceRemaining),
+          interestRate: parseFloat(hlInterestRate) || 0,
+          startDate: hlStartDate,
+          balanceRemaining: parseFloat(hlBalanceRemaining),
+          monthlyEMI: parseFloat(hlMonthlyEMI),
+          dueDay: parseInt(hlDueDay, 10) || 10,
+          payerName: hlPayerName || 'Ajesh',
+          shareRecipient: hlShareRecipient || 'Nisha',
+          syncBaseline: hlSyncBaseline,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save Home Loan configuration');
+      alert('Home Loan configuration saved!');
+      setHomeLoanConfigDialogOpen(false);
+      fetchStats();
+    } catch (e: any) {
+      alert(e.message || 'Failed to save Home Loan configuration');
+    } finally {
+      setHlConfigLoading(false);
     }
   };
 
@@ -460,6 +557,16 @@ export function useAdminDashboard() {
     setLoanEMI,
     loanAssignedTo,
     setLoanAssignedTo,
+    loanInterestRate,
+    setLoanInterestRate,
+    loanStartDate,
+    setLoanStartDate,
+    loanBalanceRemaining,
+    setLoanBalanceRemaining,
+    loanPayerName,
+    setLoanPayerName,
+    loanShareRecipient,
+    setLoanShareRecipient,
     addLoanLoading,
     handleCreateLoan,
 
@@ -496,10 +603,45 @@ export function useAdminDashboard() {
     setEditLoanAssignedTo,
     editLoanStatus,
     setEditLoanStatus,
+    editLoanInterestRate,
+    setEditLoanInterestRate,
+    editLoanStartDate,
+    setEditLoanStartDate,
+    editLoanBalanceRemaining,
+    setEditLoanBalanceRemaining,
+    editLoanPayerName,
+    setEditLoanPayerName,
+    editLoanShareRecipient,
+    setEditLoanShareRecipient,
     editLoanLoading,
     handleOpenEditLoan,
     handleEditLoan,
     handleDeleteLoan,
+
+    // Home Loan config states/actions
+    homeLoanConfigDialogOpen,
+    setHomeLoanConfigDialogOpen,
+    hlPrincipal,
+    setHlPrincipal,
+    hlInterestRate,
+    setHlInterestRate,
+    hlStartDate,
+    setHlStartDate,
+    hlBalanceRemaining,
+    setHlBalanceRemaining,
+    hlMonthlyEMI,
+    setHlMonthlyEMI,
+    hlDueDay,
+    setHlDueDay,
+    hlPayerName,
+    setHlPayerName,
+    hlShareRecipient,
+    setHlShareRecipient,
+    hlSyncBaseline,
+    setHlSyncBaseline,
+    hlConfigLoading,
+    handleOpenHomeLoanConfig,
+    handleSaveHomeLoanConfig,
 
     // Edit Expense states/actions
     editExpenseDialogOpen,

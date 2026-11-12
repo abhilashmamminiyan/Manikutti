@@ -120,6 +120,16 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     setLoanEMI,
     loanAssignedTo,
     setLoanAssignedTo,
+    loanInterestRate,
+    setLoanInterestRate,
+    loanStartDate,
+    setLoanStartDate,
+    loanBalanceRemaining,
+    setLoanBalanceRemaining,
+    loanPayerName,
+    setLoanPayerName,
+    loanShareRecipient,
+    setLoanShareRecipient,
     addLoanLoading,
     handleCreateLoan,
 
@@ -156,10 +166,45 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     setEditLoanAssignedTo,
     editLoanStatus,
     setEditLoanStatus,
+    editLoanInterestRate,
+    setEditLoanInterestRate,
+    editLoanStartDate,
+    setEditLoanStartDate,
+    editLoanBalanceRemaining,
+    setEditLoanBalanceRemaining,
+    editLoanPayerName,
+    setEditLoanPayerName,
+    editLoanShareRecipient,
+    setEditLoanShareRecipient,
     editLoanLoading,
     handleOpenEditLoan,
     handleEditLoan,
     handleDeleteLoan,
+
+    // Home Loan config states/actions
+    homeLoanConfigDialogOpen,
+    setHomeLoanConfigDialogOpen,
+    hlPrincipal,
+    setHlPrincipal,
+    hlInterestRate,
+    setHlInterestRate,
+    hlStartDate,
+    setHlStartDate,
+    hlBalanceRemaining,
+    setHlBalanceRemaining,
+    hlMonthlyEMI,
+    setHlMonthlyEMI,
+    hlDueDay,
+    setHlDueDay,
+    hlPayerName,
+    setHlPayerName,
+    hlShareRecipient,
+    setHlShareRecipient,
+    hlSyncBaseline,
+    setHlSyncBaseline,
+    hlConfigLoading,
+    handleOpenHomeLoanConfig,
+    handleSaveHomeLoanConfig,
 
     // Edit Expense states/actions
     editExpenseDialogOpen,
@@ -206,7 +251,7 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
     );
   }
 
-  const { totals = {}, categoryBreakdown = [], recentExpenses = [], members = [], dues = [], loans = [], userSheets = [] } = statsData || {};
+  const { totals = {}, categoryBreakdown = [], recentExpenses = [], members = [], dues = [], loans = [], homeLoanConfig = null, emiMonthlyTracking = [], userSheets = [] } = statsData || {};
 
   return (
     <Box sx={{ display: 'flex', bgcolor: '#f8f9fa', minHeight: '100vh' }}>
@@ -426,12 +471,15 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
               <LedgerTab
                 dues={dues}
                 loans={loans}
+                homeLoanConfig={homeLoanConfig}
+                emiMonthlyTracking={emiMonthlyTracking}
                 setAddDueDialogOpen={setAddDueDialogOpen}
                 setAddLoanDialogOpen={setAddLoanDialogOpen}
                 handleOpenEditDue={handleOpenEditDue}
                 handleDeleteDue={handleDeleteDue}
                 handleOpenEditLoan={handleOpenEditLoan}
                 handleDeleteLoan={handleDeleteLoan}
+                handleOpenHomeLoanConfig={handleOpenHomeLoanConfig}
               />
             )}
 
@@ -481,6 +529,16 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
         setLoanEMI={setLoanEMI}
         loanAssignedTo={loanAssignedTo}
         setLoanAssignedTo={setLoanAssignedTo}
+        loanInterestRate={loanInterestRate}
+        setLoanInterestRate={setLoanInterestRate}
+        loanStartDate={loanStartDate}
+        setLoanStartDate={setLoanStartDate}
+        loanBalanceRemaining={loanBalanceRemaining}
+        setLoanBalanceRemaining={setLoanBalanceRemaining}
+        loanPayerName={loanPayerName}
+        setLoanPayerName={setLoanPayerName}
+        loanShareRecipient={loanShareRecipient}
+        setLoanShareRecipient={setLoanShareRecipient}
         addLoanLoading={addLoanLoading}
         handleCreateLoan={handleCreateLoan}
 
@@ -525,8 +583,41 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
         setEditLoanAssignedTo={setEditLoanAssignedTo}
         editLoanStatus={editLoanStatus}
         setEditLoanStatus={setEditLoanStatus}
+        editLoanInterestRate={editLoanInterestRate}
+        setEditLoanInterestRate={setEditLoanInterestRate}
+        editLoanStartDate={editLoanStartDate}
+        setEditLoanStartDate={setEditLoanStartDate}
+        editLoanBalanceRemaining={editLoanBalanceRemaining}
+        setEditLoanBalanceRemaining={setEditLoanBalanceRemaining}
+        editLoanPayerName={editLoanPayerName}
+        setEditLoanPayerName={setEditLoanPayerName}
+        editLoanShareRecipient={editLoanShareRecipient}
+        setEditLoanShareRecipient={setEditLoanShareRecipient}
         editLoanLoading={editLoanLoading}
         handleEditLoan={handleEditLoan}
+
+        homeLoanConfigDialogOpen={homeLoanConfigDialogOpen}
+        setHomeLoanConfigDialogOpen={setHomeLoanConfigDialogOpen}
+        hlPrincipal={hlPrincipal}
+        setHlPrincipal={setHlPrincipal}
+        hlInterestRate={hlInterestRate}
+        setHlInterestRate={setHlInterestRate}
+        hlStartDate={hlStartDate}
+        setHlStartDate={setHlStartDate}
+        hlBalanceRemaining={hlBalanceRemaining}
+        setHlBalanceRemaining={setHlBalanceRemaining}
+        hlMonthlyEMI={hlMonthlyEMI}
+        setHlMonthlyEMI={setHlMonthlyEMI}
+        hlDueDay={hlDueDay}
+        setHlDueDay={setHlDueDay}
+        hlPayerName={hlPayerName}
+        setHlPayerName={setHlPayerName}
+        hlShareRecipient={hlShareRecipient}
+        setHlShareRecipient={setHlShareRecipient}
+        hlSyncBaseline={hlSyncBaseline}
+        setHlSyncBaseline={setHlSyncBaseline}
+        hlConfigLoading={hlConfigLoading}
+        handleSaveHomeLoanConfig={handleSaveHomeLoanConfig}
 
         editExpenseDialogOpen={editExpenseDialogOpen}
         setEditExpenseDialogOpen={setEditExpenseDialogOpen}

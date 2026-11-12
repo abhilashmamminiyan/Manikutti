@@ -171,7 +171,7 @@ export class GoogleSheetsService {
       if (type === 'Personal') {
         requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
       } else if (type === 'Family') {
-        requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
+        requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'HomeLoan_Config', 'EMI_Monthly_Tracking', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions', 'Family_Transfers'];
       } else if (type === 'Admin') {
         requiredSheets = ['User_Sheets', 'Error_Logs'];
       }
@@ -211,16 +211,19 @@ export class GoogleSheetsService {
       'Family_Goals': [['Title', 'Target Amount', 'Current Amount', 'Status', 'Goal Type', 'Target Date', 'Added By', 'Note', 'Created At']],
       'Family_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Added By', 'Family Code']],
       'Family_Members': [['Family Code', 'User Email', 'Role', 'Joined Date', 'Nickname', 'Base Salary', 'Current Salary']],
-      'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan', 'Assigned To']],
+      'Monthly_Expenses': [['Title', 'Amount', 'Due Day', 'Status', 'Family Code', 'Admin Email', 'Last Paid Date', 'Last Paid By', 'Linked Loan', 'Assigned To', 'Total Months', 'Paid Months']],
+      'Family_Transfers': [['Date', 'From Member', 'To Member', 'Amount', 'Note', 'Family Code', 'Added By', 'Status']],
       'Invitations': [['Token', 'Email', 'Family Code', 'Spreadsheet ID', 'Status', 'Expiry Date', 'Role Name']],
       'Calculator_History': [['Date', 'User', 'Expression', 'Result']],
-      'Loans': [['Loan Name', 'Principal Amount', 'Monthly EMI', 'Assigned To', 'Family Code', 'Admin Email', 'Status']],
+      'Loans': [['Loan Name', 'Principal Amount', 'Monthly EMI', 'Assigned To', 'Family Code', 'Admin Email', 'Status', 'Interest Rate', 'Start Date', 'Balance Remaining', 'Tenure Months', 'Paid Months', 'Payer Name', 'Share Recipient']],
       'Loan_Expenses': [['Date', 'Amount', 'Category', 'Note', 'Loan Name', 'Added By', 'Family Code']],
       'Loan_Repayments': [['Date', 'Amount', 'Loan Name', 'Paid By', 'Family Code']],
       'User_Sheets': [['Email', 'Spreadsheet ID']],
       'Error_Logs': [['Timestamp', 'Source', 'Severity', 'ScreenOrRoute', 'Method', 'HTTPStatus', 'Message', 'StackTrace', 'UserEmail', 'FamilyCode', 'AppVersion', 'DeviceInfo']],
       'Notifications': [['Date', 'Title', 'Message', 'Family Code', 'Type', 'Created By']],
       'HomeLoan_Ledger': [['Date', 'Total Payment', 'Principal', 'Interest', 'Balance', 'Family Code', 'Added By']],
+      'HomeLoan_Config': [['Family Code', 'Principal Amount', 'Interest Rate', 'Start Date', 'Balance Remaining', 'Monthly EMI', 'Due Day', 'Payer Name', 'Share Recipient', 'Updated At', 'Updated By']],
+      'EMI_Monthly_Tracking': [['Month Key', 'Loan Key', 'Family Code', 'Paid To Payer', 'Paid At', 'Paid By', 'Shared With Recipient', 'Shared At', 'Shared By', 'Auto SMS Detected', 'Note']],
       'Roles_Permissions': [['Role Name', 'Permissions JSON', 'Updated At', 'Description']],
     };
 
@@ -228,7 +231,7 @@ export class GoogleSheetsService {
     if (type === 'Personal') {
       defaultSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
     } else if (type === 'Family') {
-      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
+      defaultSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'HomeLoan_Config', 'EMI_Monthly_Tracking', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions', 'Family_Transfers'];
     } else if (type === 'Admin') {
       defaultSheets = ['User_Sheets', 'Error_Logs'];
     }

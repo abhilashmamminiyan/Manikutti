@@ -49,6 +49,7 @@ export default function AddRecordModal({
   const { prefillAmount } = useAppShell();
 
   const pathname = usePathname();
+  const isFamilyPath = pathname === '/family';
 
   useEffect(() => {
     if (isOpen && prefillAmount) {
@@ -60,6 +61,9 @@ export default function AddRecordModal({
   const [dueDay, setDueDay] = useState('1');
 
   const handleSave = async () => {
+    if (isFamilyPath) {
+      return;
+    }
     if (!amount && type !== 'Goal') return;
     if (type === 'Goal' && (!title || !targetAmount)) return;
 
@@ -117,6 +121,12 @@ export default function AddRecordModal({
                 <X size={24} className="dark:text-white" />
               </button>
             </div>
+            {isFamilyPath && (
+              <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-4 text-sm text-amber-900 dark:text-amber-200">
+                <p className="font-bold">Family payments are restricted to EMI &amp; Home Loan only.</p>
+                <p className="mt-1 opacity-90">Use the EMI / Home Loan trackers to log scheduled payments. Personal expenses can be added from your Personal dashboard.</p>
+              </div>
+            )}
 
             {/* Type Selector */}
             <div className="flex gap-2 mb-8 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-2xl overflow-x-auto no-scrollbar">

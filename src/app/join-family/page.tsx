@@ -15,6 +15,8 @@ function JoinFamilyContent() {
   const [success, setSuccess] = useState(false);
 
   const token = searchParams.get('token');
+  const familyAccessCode = searchParams.get('code')?.trim().toUpperCase();
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && token && !loading && !success && !error) {
@@ -49,6 +51,44 @@ function JoinFamilyContent() {
       setLoading(false);
     }
   };
+
+  if (familyAccessCode) {
+    const appDeepLink = `manikutti://join?code=${encodeURIComponent(familyAccessCode)}`;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center max-w-md mx-auto">
+        <ShieldCheck size={52} className="text-primary mb-5" />
+        <h1 className="text-2xl font-bold mb-2">Join Your Family in Manikutti</h1>
+        <p className="text-slate-500 mb-6 text-sm">
+          Tap below to open the Manikutti mobile app and sign in instantly — no email verification needed.
+        </p>
+        <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 mb-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Your Family Access Code
+          </div>
+          <div className="text-2xl font-mono font-bold tracking-widest text-slate-900">
+            {familyAccessCode}
+          </div>
+        </div>
+        <a
+          href={appDeepLink}
+          className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all mb-3"
+        >
+          Open in Manikutti App
+          <ArrowRight size={20} />
+        </a>
+        <button
+          onClick={() => {
+            navigator.clipboard?.writeText(familyAccessCode);
+            setCopiedCode(true);
+            setTimeout(() => setCopiedCode(false), 2000);
+          }}
+          className="text-sm font-semibold text-primary hover:underline"
+        >
+          {copiedCode ? 'Code Copied!' : 'Copy Code Manually'}
+        </button>
+      </div>
+    );
+  }
 
   if (!token) {
     return (

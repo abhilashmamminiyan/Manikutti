@@ -51,6 +51,12 @@ export async function GET(request: Request) {
   }
 }
 
+function isAllowedFamilyPaymentCategory(category: unknown, isEmiPayment?: boolean): boolean {
+  if (isEmiPayment === true) return true;
+  const norm = String(category ?? '').trim().toLowerCase();
+  return norm === 'emi' || norm === 'home loan' || norm === 'loan' || norm === 'loan repayment' || norm.includes('emi') || norm.includes('home loan');
+}
+
 export async function POST(request: Request) {
   try {
     const email = await getAuthUserEmail(request);
@@ -66,6 +72,10 @@ export async function POST(request: Request) {
     // Handle batch insertion
     if (Array.isArray(expenses)) {
       if (sheetName === 'Family_Expenses') {
+        const hasDisallowed = expenses.some((exp: any) => !isAllowedFamilyPaymentCategory(exp?.category, exp?.isEmiPayment));
+        if (hasDisallowed) {
+          return NextResponse.json({ error: 'Family payments are restricted to EMI and Home Loan only.' }, { status: 403 });
+        }
         let members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
         const userRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
         if (!userRow) {
@@ -74,7 +84,7 @@ export async function POST(request: Request) {
         const rows = expenses.map((exp: any) => [
           exp.date || new Date().toISOString(),
           exp.amount,
-          exp.category || 'General',
+          exp.category || 'EMI',
           exp.note || '',
           email,
           familyCode || ''
@@ -98,6 +108,9 @@ export async function POST(request: Request) {
     }
 
     if (sheetName === 'Family_Expenses') {
+      if (!isAllowedFamilyPaymentCategory(expense?.category, expense?.isEmiPayment)) {
+        return NextResponse.json({ error: 'Family payments are restricted to EMI and Home Loan only. Extra family expenses cannot be added.' }, { status: 403 });
+      }
       // Admin Check
       let members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
       const isAdminEmail = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()).includes(email.toLowerCase());
