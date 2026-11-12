@@ -6,6 +6,10 @@ import { getUserRecordFromFirestore, upsertUserRecordInFirestore } from './featu
 export const PERSONAL_SHEET_NAME = 'Manikutti_v2_Personal';
 export const FAMILY_SHEET_PREFIX = 'Manikutti_v2_Family_';
 
+const SHEETS_VERIFY_TTL_MS = 5 * 60 * 1000;
+const verifiedSheetsCache = new Map<string, number>();
+const inFlightEnsureSheets = new Map<string, Promise<void>>();
+
 export class GoogleSheetsService {
   private userEmail?: string;
   private sheets: sheets_v4.Sheets;
@@ -145,36 +149,56 @@ export class GoogleSheetsService {
   }
 
   public async ensureSheetsExist(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin') {
-    const spreadsheet = await this.sheets.spreadsheets.get({ 
-      auth: this.auth,
-      spreadsheetId 
-    });
-    const existingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
-    
-    let requiredSheets: string[] = [];
-    if (type === 'Personal') {
-      requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
-    } else if (type === 'Family') {
-      requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
-    } else if (type === 'Admin') {
-      requiredSheets = ['User_Sheets'];
+    const cacheKey = `${type}:${spreadsheetId}`;
+    const lastVerifiedAt = verifiedSheetsCache.get(cacheKey);
+    if (lastVerifiedAt && Date.now() - lastVerifiedAt < SHEETS_VERIFY_TTL_MS) {
+      return;
     }
 
-    const missingSheets = requiredSheets.filter(s => !existingSheets.includes(s));
+    const pending = inFlightEnsureSheets.get(cacheKey);
+    if (pending) {
+      return pending;
+    }
 
-    if (missingSheets.length > 0) {
-      const requests = missingSheets.map(title => ({
-        addSheet: { properties: { title } }
-      }));
-
-      await this.sheets.spreadsheets.batchUpdate({
+    const verifyPromise = (async () => {
+      const spreadsheet = await this.sheets.spreadsheets.get({
         auth: this.auth,
-        spreadsheetId,
-        requestBody: { requests }
+        spreadsheetId
       });
+      const existingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
 
-      await this.initializeSheets(spreadsheetId, type, missingSheets);
-    }
+      let requiredSheets: string[] = [];
+      if (type === 'Personal') {
+        requiredSheets = ['Personal_Expenses', 'Personal_Utilities', 'Settings', 'Goals', 'Calculator_History', 'Mobile_Recharges'];
+      } else if (type === 'Family') {
+        requiredSheets = ['Family_Expenses', 'Family_Members', 'Monthly_Expenses', 'Invitations', 'Calculator_History', 'Loans', 'Loan_Expenses', 'Loan_Repayments', 'Notifications', 'HomeLoan_Ledger', 'Mobile_Recharges', 'Family_Goals', 'Roles_Permissions'];
+      } else if (type === 'Admin') {
+        requiredSheets = ['User_Sheets'];
+      }
+
+      const missingSheets = requiredSheets.filter(s => !existingSheets.includes(s));
+
+      if (missingSheets.length > 0) {
+        const requests = missingSheets.map(title => ({
+          addSheet: { properties: { title } }
+        }));
+
+        await this.sheets.spreadsheets.batchUpdate({
+          auth: this.auth,
+          spreadsheetId,
+          requestBody: { requests }
+        });
+
+        await this.initializeSheets(spreadsheetId, type, missingSheets);
+      }
+
+      verifiedSheetsCache.set(cacheKey, Date.now());
+    })().finally(() => {
+      inFlightEnsureSheets.delete(cacheKey);
+    });
+
+    inFlightEnsureSheets.set(cacheKey, verifyPromise);
+    return verifyPromise;
   }
 
   private async initializeSheets(spreadsheetId: string, type: 'Personal' | 'Family' | 'Admin', specificSheets?: string[]) {

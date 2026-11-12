@@ -2,15 +2,27 @@ import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
 
+function parseLoanAmount(val: unknown): number {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
+  const cleaned = String(val ?? '').replace(/[₹,\s]/g, '');
+  const parsed = parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeFamilyCode(val: unknown): string {
+  return String(val ?? '').trim().toUpperCase();
+}
+
 export async function GET(request: Request) {
   try {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const url = new URL(request.url);
-    const familyCode = url.searchParams.get('familyCode');
+    const familyCode = url.searchParams.get('familyCode')?.trim();
     if (!familyCode) return NextResponse.json({ error: 'Family code required' }, { status: 400 });
 
+    const targetCode = normalizeFamilyCode(familyCode);
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
@@ -18,16 +30,16 @@ export async function GET(request: Request) {
     const rows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
     const items = rows.slice(1)
       .map((row, index) => ({
-        date: row[0],
-        totalPayment: parseFloat(row[1]) || 0,
-        principal: parseFloat(row[2]) || 0,
-        interest: parseFloat(row[3]) || 0,
-        balance: parseFloat(row[4]) || 0,
-        familyCode: row[5],
-        addedBy: row[6],
+        date: String(row[0] ?? '').trim(),
+        totalPayment: parseLoanAmount(row[1]),
+        principal: parseLoanAmount(row[2]),
+        interest: parseLoanAmount(row[3]),
+        balance: parseLoanAmount(row[4]),
+        familyCode: String(row[5] ?? '').trim(),
+        addedBy: String(row[6] ?? '').trim(),
         id: index + 1
       }))
-      .filter(r => r.familyCode === familyCode);
+      .filter(r => (r.date || r.totalPayment > 0 || r.familyCode) && normalizeFamilyCode(r.familyCode) === targetCode);
 
     return NextResponse.json({ items });
 
