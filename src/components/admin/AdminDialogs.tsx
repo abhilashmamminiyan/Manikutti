@@ -12,7 +12,9 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Typography
+  Typography,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 
 interface AdminDialogsProps {
@@ -43,6 +45,20 @@ interface AdminDialogsProps {
   setLoanEMI: (val: string) => void;
   loanAssignedTo: string;
   setLoanAssignedTo: (val: string) => void;
+  loanInterestRate?: string;
+  setLoanInterestRate?: (val: string) => void;
+  loanStartDate?: string;
+  setLoanStartDate?: (val: string) => void;
+  loanBalanceRemaining?: string;
+  setLoanBalanceRemaining?: (val: string) => void;
+  loanPayerName?: string;
+  setLoanPayerName?: (val: string) => void;
+  loanShareRecipient?: string;
+  setLoanShareRecipient?: (val: string) => void;
+  loanTenureMonths?: string;
+  setLoanTenureMonths?: (val: string) => void;
+  loanPaidMonths?: string;
+  setLoanPaidMonths?: (val: string) => void;
   addLoanLoading: boolean;
   handleCreateLoan: () => void;
 
@@ -90,8 +106,46 @@ interface AdminDialogsProps {
   setEditLoanAssignedTo: (val: string) => void;
   editLoanStatus: string;
   setEditLoanStatus: (val: string) => void;
+  editLoanInterestRate?: string;
+  setEditLoanInterestRate?: (val: string) => void;
+  editLoanStartDate?: string;
+  setEditLoanStartDate?: (val: string) => void;
+  editLoanBalanceRemaining?: string;
+  setEditLoanBalanceRemaining?: (val: string) => void;
+  editLoanPayerName?: string;
+  setEditLoanPayerName?: (val: string) => void;
+  editLoanShareRecipient?: string;
+  setEditLoanShareRecipient?: (val: string) => void;
+  editLoanTenureMonths?: string;
+  setEditLoanTenureMonths?: (val: string) => void;
+  editLoanPaidMonths?: string;
+  setEditLoanPaidMonths?: (val: string) => void;
   editLoanLoading: boolean;
   handleEditLoan: () => void;
+
+  // Home Loan Configuration dialog
+  homeLoanConfigDialogOpen?: boolean;
+  setHomeLoanConfigDialogOpen?: (open: boolean) => void;
+  hlPrincipal?: string;
+  setHlPrincipal?: (val: string) => void;
+  hlInterestRate?: string;
+  setHlInterestRate?: (val: string) => void;
+  hlStartDate?: string;
+  setHlStartDate?: (val: string) => void;
+  hlBalanceRemaining?: string;
+  setHlBalanceRemaining?: (val: string) => void;
+  hlMonthlyEMI?: string;
+  setHlMonthlyEMI?: (val: string) => void;
+  hlDueDay?: string;
+  setHlDueDay?: (val: string) => void;
+  hlPayerName?: string;
+  setHlPayerName?: (val: string) => void;
+  hlShareRecipient?: string;
+  setHlShareRecipient?: (val: string) => void;
+  hlSyncBaseline?: boolean;
+  setHlSyncBaseline?: (val: boolean) => void;
+  hlConfigLoading?: boolean;
+  handleSaveHomeLoanConfig?: () => void;
 
   // Edit Expense dialog
   editExpenseDialogOpen: boolean;
@@ -143,6 +197,20 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
   setLoanEMI,
   loanAssignedTo,
   setLoanAssignedTo,
+  loanInterestRate = '',
+  setLoanInterestRate,
+  loanStartDate = '',
+  setLoanStartDate,
+  loanBalanceRemaining = '',
+  setLoanBalanceRemaining,
+  loanPayerName = 'Ajesh',
+  setLoanPayerName,
+  loanShareRecipient = 'Nisha',
+  setLoanShareRecipient,
+  loanTenureMonths = '',
+  setLoanTenureMonths,
+  loanPaidMonths = '',
+  setLoanPaidMonths,
   addLoanLoading,
   handleCreateLoan,
 
@@ -187,8 +255,45 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
   setEditLoanAssignedTo,
   editLoanStatus,
   setEditLoanStatus,
+  editLoanInterestRate = '',
+  setEditLoanInterestRate,
+  editLoanStartDate = '',
+  setEditLoanStartDate,
+  editLoanBalanceRemaining = '',
+  setEditLoanBalanceRemaining,
+  editLoanPayerName = 'Ajesh',
+  setEditLoanPayerName,
+  editLoanShareRecipient = 'Nisha',
+  setEditLoanShareRecipient,
+  editLoanTenureMonths = '',
+  setEditLoanTenureMonths,
+  editLoanPaidMonths = '',
+  setEditLoanPaidMonths,
   editLoanLoading,
   handleEditLoan,
+
+  homeLoanConfigDialogOpen = false,
+  setHomeLoanConfigDialogOpen,
+  hlPrincipal = '',
+  setHlPrincipal,
+  hlInterestRate = '',
+  setHlInterestRate,
+  hlStartDate = '2026-01-01',
+  setHlStartDate,
+  hlBalanceRemaining = '',
+  setHlBalanceRemaining,
+  hlMonthlyEMI = '',
+  setHlMonthlyEMI,
+  hlDueDay = '10',
+  setHlDueDay,
+  hlPayerName = 'Ajesh',
+  setHlPayerName,
+  hlShareRecipient = 'Nisha',
+  setHlShareRecipient,
+  hlSyncBaseline = true,
+  setHlSyncBaseline,
+  hlConfigLoading = false,
+  handleSaveHomeLoanConfig,
 
   editExpenseDialogOpen,
   setEditExpenseDialogOpen,
@@ -280,6 +385,66 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
         <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Add Loan & EMI</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
+                Quick Fill From Repayment Schedules:
+              </Typography>
+              {[
+                {
+                  label: 'Bajaj PL (₹7,755)',
+                  name: 'Bajaj PL (P595PRB70267501)',
+                  amount: '215378',
+                  emi: '7755',
+                  rate: '30',
+                  start: '2026-01-02',
+                  balance: '188820',
+                  tenure: '48',
+                  paid: '10',
+                },
+                {
+                  label: 'Bajaj Lifestyle 0% (₹3,546)',
+                  name: 'Bajaj Lifestyle (P595PSC90568277)',
+                  amount: '28369',
+                  emi: '3546',
+                  rate: '0',
+                  start: '2026-04-18',
+                  balance: '3547',
+                  tenure: '8',
+                  paid: '7',
+                },
+                {
+                  label: 'Bajaj Lifestyle 23.58% (₹4,834)',
+                  name: 'Bajaj Lifestyle (P595PSC89289290)',
+                  amount: '78000',
+                  emi: '4834',
+                  rate: '23.58',
+                  start: '2026-04-13',
+                  balance: '31325',
+                  tenure: '18',
+                  paid: '7',
+                },
+              ].map((preset) => (
+                <Button
+                  key={preset.label}
+                  size="small"
+                  variant="outlined"
+                  disabled={addLoanLoading}
+                  sx={{ fontSize: '0.7rem', textTransform: 'none', py: 0.25, px: 1 }}
+                  onClick={() => {
+                    setLoanName(preset.name);
+                    setLoanAmount(preset.amount);
+                    setLoanEMI(preset.emi);
+                    setLoanInterestRate?.(preset.rate);
+                    setLoanStartDate?.(preset.start);
+                    setLoanBalanceRemaining?.(preset.balance);
+                    setLoanTenureMonths?.(preset.tenure);
+                    setLoanPaidMonths?.(preset.paid);
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </Box>
             <TextField 
               label="Loan Name" 
               fullWidth 
@@ -321,6 +486,73 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 ))}
               </Select>
             </FormControl>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Interest Rate (% p.a.)"
+                type="number"
+                fullWidth
+                value={loanInterestRate}
+                onChange={(e) => setLoanInterestRate?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="e.g. 8.75"
+              />
+              <TextField
+                label="Start Date"
+                type="date"
+                fullWidth
+                value={loanStartDate}
+                onChange={(e) => setLoanStartDate?.(e.target.value)}
+                disabled={addLoanLoading}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Box>
+            <TextField
+              label="Current Balance to be Paid (₹)"
+              type="number"
+              fullWidth
+              value={loanBalanceRemaining}
+              onChange={(e) => setLoanBalanceRemaining?.(e.target.value)}
+              disabled={addLoanLoading}
+              placeholder="Leave blank to default to Principal"
+            />
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Tenure (Months)"
+                type="number"
+                fullWidth
+                value={loanTenureMonths}
+                onChange={(e) => setLoanTenureMonths?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="e.g. 48"
+              />
+              <TextField
+                label="Paid Months"
+                type="number"
+                fullWidth
+                value={loanPaidMonths}
+                onChange={(e) => setLoanPaidMonths?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="e.g. 10"
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="EMI Paid To (Payer)"
+                fullWidth
+                value={loanPayerName}
+                onChange={(e) => setLoanPayerName?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="Ajesh"
+              />
+              <TextField
+                label="Amount Shared To"
+                fullWidth
+                value={loanShareRecipient}
+                onChange={(e) => setLoanShareRecipient?.(e.target.value)}
+                disabled={addLoanLoading}
+                placeholder="Nisha"
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -529,6 +761,67 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
                 <MenuItem value="Closed">Closed</MenuItem>
               </Select>
             </FormControl>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Interest Rate (% p.a.)"
+                type="number"
+                fullWidth
+                value={editLoanInterestRate}
+                onChange={(e) => setEditLoanInterestRate?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+              <TextField
+                label="Start Date"
+                type="date"
+                fullWidth
+                value={editLoanStartDate}
+                onChange={(e) => setEditLoanStartDate?.(e.target.value)}
+                disabled={editLoanLoading}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Box>
+            <TextField
+              label="Current Balance to be Paid (₹)"
+              type="number"
+              fullWidth
+              value={editLoanBalanceRemaining}
+              onChange={(e) => setEditLoanBalanceRemaining?.(e.target.value)}
+              disabled={editLoanLoading}
+            />
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Tenure (Months)"
+                type="number"
+                fullWidth
+                value={editLoanTenureMonths}
+                onChange={(e) => setEditLoanTenureMonths?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+              <TextField
+                label="Paid Months"
+                type="number"
+                fullWidth
+                value={editLoanPaidMonths}
+                onChange={(e) => setEditLoanPaidMonths?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="EMI Paid To (Payer)"
+                fullWidth
+                value={editLoanPayerName}
+                onChange={(e) => setEditLoanPayerName?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+              <TextField
+                label="Amount Shared To"
+                fullWidth
+                value={editLoanShareRecipient}
+                onChange={(e) => setEditLoanShareRecipient?.(e.target.value)}
+                disabled={editLoanLoading}
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -592,6 +885,136 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
             sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
           >
             {editExpenseLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Home Loan Configuration Dialog */}
+      <Dialog open={Boolean(homeLoanConfigDialogOpen)} onClose={() => setHomeLoanConfigDialogOpen?.(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>Configure Home Loan &amp; Current Status</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', bgcolor: 'rgba(0,105,114,0.06)', p: 1.5, borderRadius: 2 }}>
+              Set your Home Loan interest rate, start date (e.g. January), and current balance remaining to be paid. Use Auto-Calc to estimate the balance from Start Date or enter your bank statement balance directly.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Original Principal (₹)"
+                type="number"
+                fullWidth
+                value={hlPrincipal}
+                onChange={(e) => setHlPrincipal?.(e.target.value)}
+                disabled={hlConfigLoading}
+              />
+              <TextField
+                label="Interest Rate (% p.a.)"
+                type="number"
+                fullWidth
+                value={hlInterestRate}
+                onChange={(e) => setHlInterestRate?.(e.target.value)}
+                disabled={hlConfigLoading}
+                placeholder="8.5"
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Start Date (e.g. Jan)"
+                type="date"
+                fullWidth
+                value={hlStartDate}
+                onChange={(e) => setHlStartDate?.(e.target.value)}
+                disabled={hlConfigLoading}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <TextField
+                label="Monthly EMI (₹)"
+                type="number"
+                fullWidth
+                value={hlMonthlyEMI}
+                onChange={(e) => setHlMonthlyEMI?.(e.target.value)}
+                disabled={hlConfigLoading}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <TextField
+                label="Current Balance to be Paid (₹)"
+                type="number"
+                fullWidth
+                value={hlBalanceRemaining}
+                onChange={(e) => setHlBalanceRemaining?.(e.target.value)}
+                disabled={hlConfigLoading}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={hlConfigLoading}
+                sx={{ whiteSpace: 'nowrap', py: 1.7 }}
+                onClick={() => {
+                  const p = parseFloat(hlPrincipal);
+                  const r = (parseFloat(hlInterestRate) || 0) / 12 / 100;
+                  const emi = parseFloat(hlMonthlyEMI) || 0;
+                  const start = new Date(hlStartDate);
+                  if (!isNaN(p) && p > 0 && emi > 0 && !isNaN(start.getTime())) {
+                    const now = new Date();
+                    const months = Math.max(0, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
+                    let bal = p;
+                    for (let i = 0; i < months && bal > 0; i++) {
+                      const interest = bal * r;
+                      bal = Math.max(0, bal + interest - emi);
+                    }
+                    setHlBalanceRemaining?.(Math.round(bal).toString());
+                  }
+                }}
+              >
+                Auto-Calc
+              </Button>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                label="Mandatory Due Before Day"
+                type="number"
+                fullWidth
+                value={hlDueDay}
+                onChange={(e) => setHlDueDay?.(e.target.value)}
+                disabled={hlConfigLoading}
+                slotProps={{ htmlInput: { min: 1, max: 28 } }}
+              />
+              <TextField
+                label="EMI Paid To (e.g. Ajesh)"
+                fullWidth
+                value={hlPayerName}
+                onChange={(e) => setHlPayerName?.(e.target.value)}
+                disabled={hlConfigLoading}
+              />
+              <TextField
+                label="Shared To (e.g. Nisha)"
+                fullWidth
+                value={hlShareRecipient}
+                onChange={(e) => setHlShareRecipient?.(e.target.value)}
+                disabled={hlConfigLoading}
+              />
+            </Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(hlSyncBaseline)}
+                  onChange={(e) => setHlSyncBaseline?.(e.target.checked)}
+                  disabled={hlConfigLoading}
+                />
+              }
+              label="Sync current balance snapshot into Home Loan Ledger (if needed)"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setHomeLoanConfigDialogOpen?.(false)} disabled={hlConfigLoading}>Cancel</Button>
+          <Button
+            onClick={() => handleSaveHomeLoanConfig?.()}
+            variant="contained"
+            disabled={hlConfigLoading}
+            sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+          >
+            {hlConfigLoading ? <CircularProgress size={20} color="inherit" /> : 'Save Configuration'}
           </Button>
         </DialogActions>
       </Dialog>

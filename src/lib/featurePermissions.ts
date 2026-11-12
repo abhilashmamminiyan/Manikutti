@@ -199,15 +199,19 @@ export function buildDefaultRolesConfig(): FamilyRolesConfig {
         permissions: createPermissionsMap(true, {
           home_loan: false,
           loans_emi_ledger: false,
+          mobile_recharges: false,
           bank_statement: false,
           ai_advisor: false,
         }),
       },
       Basic: {
         roleName: 'Basic',
-        description: 'Minimal clutter-free experience: manual expense entry + screenshot sharing only.',
+        description: 'Simple family experience: assigned EMIs/loans, Pay Now reminders, pool transfers, and screenshot logging only.',
         isSystem: true,
         permissions: createPermissionsMap(false, {
+          home_loan: true,
+          loans_emi_ledger: true,
+          monthly_dues: true,
           screenshots: true,
           smart_scan: true,
           ai_screenshot_extraction: true,
@@ -223,7 +227,12 @@ export interface FirestoreUserRecord {
   googleDriveId?: string;
   familyCode?: string;
   roleName?: string;
+  nickname?: string;
   fcmTokens?: string[];
+  accessCodeHash?: string;
+  accessCodeHint?: string;
+  accessCodeActive?: boolean;
+  tokenVersion?: number;
   updatedAt?: string;
 }
 

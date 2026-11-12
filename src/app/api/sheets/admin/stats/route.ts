@@ -67,11 +67,13 @@ export async function GET(request: Request) {
     }
 
     // 3. Fetch all other sheets concurrently
-    const [expenseRows, monthlyRows, loanRows, userSheetsRows] = await Promise.all([
+    const [expenseRows, monthlyRows, loanRows, userSheetsRows, homeLoanConfigRows, trackingRows] = await Promise.all([
       service.getSheetData(familySheetId, 'Family_Expenses!A:F'),
       service.getSheetData(familySheetId, 'Monthly_Expenses!A:J'),
-      service.getSheetData(familySheetId, 'Loans!A:G'),
-      service.getSheetData(adminSheetId, 'User_Sheets!A:B')
+      service.getSheetData(familySheetId, 'Loans!A:N'),
+      service.getSheetData(adminSheetId, 'User_Sheets!A:B'),
+      service.getSheetData(familySheetId, 'HomeLoan_Config!A:K'),
+      service.getSheetData(familySheetId, 'EMI_Monthly_Tracking!A:K')
     ]);
 
     // 4. Map and filter family members
@@ -141,6 +143,7 @@ export async function GET(request: Request) {
       .filter(r => r.familyCode === familyCode);
 
     // 7. Map and filter loans
+    const targetCode = String(familyCode ?? '').trim().toUpperCase();
     const loans = loanRows.slice(1)
       .map((r, index) => ({
         name: r[0],
@@ -150,9 +153,48 @@ export async function GET(request: Request) {
         familyCode: r[4],
         adminEmail: r[5],
         status: r[6] || 'Active',
+        interestRate: parseFloat(r[7]) || 0,
+        startDate: r[8]?.toString().trim() || '',
+        balanceRemaining: r[9] !== undefined && r[9] !== '' ? (parseFloat(r[9]) || 0) : (parseFloat(r[1]) || 0),
+        tenureMonths: parseInt(r[10]) || 0,
+        paidMonths: parseInt(r[11]) || 0,
+        payerName: r[12]?.toString().trim() || 'Ajesh',
+        shareRecipient: r[13]?.toString().trim() || 'Nisha',
         id: index + 1
       }))
-      .filter(r => r.familyCode === familyCode);
+      .filter(r => String(r.familyCode ?? '').trim().toUpperCase() === targetCode);
+
+    const cfgRow = homeLoanConfigRows.slice(1).find(r => String(r[0] ?? '').trim().toUpperCase() === targetCode);
+    const homeLoanConfig = cfgRow ? {
+      familyCode: String(cfgRow[0] ?? '').trim(),
+      principalAmount: parseFloat(cfgRow[1]) || 0,
+      interestRate: parseFloat(cfgRow[2]) || 0,
+      startDate: String(cfgRow[3] ?? '').trim(),
+      balanceRemaining: parseFloat(cfgRow[4]) || 0,
+      monthlyEMI: parseFloat(cfgRow[5]) || 0,
+      dueDay: parseInt(cfgRow[6]) || 10,
+      payerName: String(cfgRow[7] ?? '').trim() || 'Ajesh',
+      shareRecipient: String(cfgRow[8] ?? '').trim() || 'Nisha',
+      updatedAt: String(cfgRow[9] ?? '').trim(),
+      updatedBy: String(cfgRow[10] ?? '').trim(),
+    } : null;
+
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const emiMonthlyTracking = trackingRows.slice(1)
+      .map((r) => ({
+        monthKey: String(r[0] ?? '').trim(),
+        loanKey: String(r[1] ?? '').trim(),
+        familyCode: String(r[2] ?? '').trim(),
+        paidToPayer: String(r[3] ?? '').toLowerCase() === 'true',
+        paidAt: String(r[4] ?? '').trim(),
+        paidBy: String(r[5] ?? '').trim(),
+        sharedWithRecipient: String(r[6] ?? '').toLowerCase() === 'true',
+        sharedAt: String(r[7] ?? '').trim(),
+        sharedBy: String(r[8] ?? '').trim(),
+        autoSmsDetected: String(r[9] ?? '').toLowerCase() === 'true',
+        note: String(r[10] ?? '').trim(),
+      }))
+      .filter(r => r.familyCode.toUpperCase() === targetCode && r.monthKey === currentMonthKey);
 
     // 8. Map employee spreadsheets from Admin Spreadsheet Index
     const userSheets = userSheetsRows.slice(1).map((r, index) => {
@@ -222,6 +264,8 @@ export async function GET(request: Request) {
       members,
       dues,
       loans,
+      homeLoanConfig,
+      emiMonthlyTracking,
       userSheets
     });
 

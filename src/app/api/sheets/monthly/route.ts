@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:J');
+    const rows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:L');
 
     const now = new Date();
     const currentYear = now.getUTCFullYear();
@@ -42,6 +42,8 @@ export async function GET(request: Request) {
           lastPaidBy: row[7] || '',
           linkedLoan: row[8] || '',
           assignedTo: row[9]?.toString().trim() || 'Family',
+          totalMonths: parseInt(row[10]) || 0,
+          paidMonths: parseInt(row[11]) || 0,
           id: index + 1
         };
       })
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { title, amount, dueDay, familyCode, assignedTo } = await request.json();
+    const { title, amount, dueDay, familyCode, assignedTo, totalMonths, paidMonths } = await request.json();
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
@@ -83,7 +85,9 @@ export async function POST(request: Request) {
       '', // lastPaidDate
       '', // lastPaidBy
       '', // Linked Loan
-      assignedTo || 'Family' // Column J
+      assignedTo || 'Family', // Column J
+      totalMonths ? Number(totalMonths) : '', // Column K
+      paidMonths ? Number(paidMonths) : '' // Column L
     ]);
 
     return NextResponse.json({ success: true });
@@ -99,18 +103,26 @@ export async function PATCH(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id, paidDate } = await request.json();
+    const { id, paidDate, logToFamily } = await request.json();
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
     
     // Fetch all rows
-    const allRows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:J');
+    const allRows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:L');
     const item = allRows[id]; 
     if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
 
-    const assignedTo = item[9];
-    if (assignedTo && assignedTo !== 'Family' && assignedTo?.toLowerCase() !== email.toLowerCase()) {
+    // Fetch User Nickname & Role
+    const memberRows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
+    const currentUser = memberRows.slice(1).find(r => r[1]?.toLowerCase() === email.toLowerCase());
+    const displayName = currentUser?.[4]?.toString().trim() || email.split('@')[0];
+    const isAdmin = currentUser?.[2]?.toString().trim() === 'Admin';
+
+    const assignedTo = item[9]?.toString().trim() || 'Family';
+    const matchesEmail = assignedTo.toLowerCase() === email.toLowerCase();
+    const matchesNickname = assignedTo.toLowerCase() === displayName.toLowerCase();
+    if (assignedTo && assignedTo !== 'Family' && !matchesEmail && !matchesNickname && !isAdmin) {
       return NextResponse.json({ error: `Only the assigned user (${assignedTo}) can mark this as paid.` }, { status: 403 });
     }
 
@@ -119,8 +131,13 @@ export async function PATCH(request: Request) {
       const loansRows = await service.getSheetData(spreadsheetId, 'Loans!A:G');
       const loan = loansRows.find(r => r[0] === linkedLoanName);
       if (loan) {
-        const loanAssignedTo = loan[3];
-        if (loanAssignedTo && loanAssignedTo?.toLowerCase() !== email.toLowerCase()) {
+        const loanAssignedTo = loan[3]?.toString().trim();
+        if (
+          loanAssignedTo &&
+          loanAssignedTo.toLowerCase() !== email.toLowerCase() &&
+          loanAssignedTo.toLowerCase() !== displayName.toLowerCase() &&
+          !isAdmin
+        ) {
           return NextResponse.json({ error: 'Only the assigned user can mark this loan as paid.' }, { status: 403 });
         }
         
@@ -135,20 +152,45 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Fetch User Nickname
-    const memberRows = await service.getSheetData(spreadsheetId, 'Family_Members!A:F');
-    const currentUser = memberRows.slice(1).find(r => r[1]?.toLowerCase() === email.toLowerCase());
-    const displayName = currentUser?.[4] || email;
+    // Check if already paid this month before incrementing paidMonths
+    const prevPaidDate = item[6] ? new Date(item[6]) : null;
+    const effectivePaidDate = paidDate || new Date().toISOString();
+    const nowDate = new Date(effectivePaidDate);
+    const alreadyPaidThisMonth = Boolean(
+      prevPaidDate &&
+      !isNaN(prevPaidDate.getTime()) &&
+      prevPaidDate.getUTCFullYear() === nowDate.getUTCFullYear() &&
+      prevPaidDate.getUTCMonth() === nowDate.getUTCMonth()
+    );
 
-    // Update status (col D), lastPaidDate (col G), and lastPaidBy (col H)
+    const prevPaidMonths = parseInt(item[11]) || 0;
+    const nextPaidMonths = alreadyPaidThisMonth ? prevPaidMonths : prevPaidMonths + 1;
+
+    // Update status (col D), lastPaidDate (col G), lastPaidBy (col H), and paidMonths (col L)
     const updates = [
       { range: `Monthly_Expenses!D${id + 1}`, values: [['Paid']] },
-      { range: `Monthly_Expenses!G${id + 1}`, values: [[paidDate]] },
-      { range: `Monthly_Expenses!H${id + 1}`, values: [[displayName]] }
+      { range: `Monthly_Expenses!G${id + 1}`, values: [[effectivePaidDate]] },
+      { range: `Monthly_Expenses!H${id + 1}`, values: [[displayName]] },
+      { range: `Monthly_Expenses!L${id + 1}`, values: [[nextPaidMonths]] },
     ];
 
     for (const update of updates) {
       await service.updateSheetData(spreadsheetId, update.range, update.values);
+    }
+
+    if (logToFamily) {
+      try {
+        await service.appendRow(spreadsheetId, 'Family_Expenses', [
+          effectivePaidDate,
+          parseFloat(item[1]) || 0,
+          'Loan/EMI',
+          `${item[0]} (Paid by ${displayName})`,
+          email,
+          item[4] || ''
+        ]);
+      } catch (e) {
+        console.error('Failed to append Family_Expenses for monthly due:', e);
+      }
     }
 
     // Log Notification Row
@@ -177,7 +219,7 @@ export async function PUT(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id, title, amount, dueDay, assignedTo, status } = await request.json();
+    const { id, title, amount, dueDay, assignedTo, status, totalMonths, paidMonths } = await request.json();
     if (id === undefined || !title || amount === undefined || dueDay === undefined || !status) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
@@ -203,6 +245,12 @@ export async function PUT(request: Request) {
       { range: `Monthly_Expenses!D${rowIndex}`, values: [[status]] },
       { range: `Monthly_Expenses!J${rowIndex}`, values: [[assignedTo || 'Family']] }
     ];
+    if (totalMonths !== undefined) {
+      updates.push({ range: `Monthly_Expenses!K${rowIndex}`, values: [[Number(totalMonths) || 0]] });
+    }
+    if (paidMonths !== undefined) {
+      updates.push({ range: `Monthly_Expenses!L${rowIndex}`, values: [[Number(paidMonths) || 0]] });
+    }
 
     if (status === 'Paid') {
       // Get existing values to check if lastPaidDate is empty

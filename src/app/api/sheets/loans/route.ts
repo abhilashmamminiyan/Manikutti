@@ -9,16 +9,20 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const familyCode = url.searchParams.get('familyCode');
+    const monthKey = url.searchParams.get('monthKey') || new Date().toISOString().slice(0, 7);
     if (!familyCode) return NextResponse.json({ error: 'Family code required' }, { status: 400 });
 
+    const targetCode = familyCode.trim().toUpperCase();
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
-    if (!spreadsheetId) return NextResponse.json({ loans: [] });
+    if (!spreadsheetId) return NextResponse.json({ loans: [], expenses: [], repayments: [], homeLoanConfig: null, monthlyTracking: [] });
 
-    const [loansRows, expensesRows, repaymentRows] = await Promise.all([
-      service.getSheetData(spreadsheetId, 'Loans!A:G'),
+    const [loansRows, expensesRows, repaymentRows, homeLoanConfigRows, trackingRows] = await Promise.all([
+      service.getSheetData(spreadsheetId, 'Loans!A:N'),
       service.getSheetData(spreadsheetId, 'Loan_Expenses!A:G'),
-      service.getSheetData(spreadsheetId, 'Loan_Repayments!A:E')
+      service.getSheetData(spreadsheetId, 'Loan_Repayments!A:E'),
+      service.getSheetData(spreadsheetId, 'HomeLoan_Config!A:K'),
+      service.getSheetData(spreadsheetId, 'EMI_Monthly_Tracking!A:K'),
     ]);
 
     const loans = loansRows.slice(1)
@@ -30,12 +34,19 @@ export async function GET(request: Request) {
         familyCode: r[4],
         adminEmail: r[5],
         status: r[6] || 'Active',
+        interestRate: parseFloat(r[7]) || 0,
+        startDate: r[8]?.toString().trim() || '',
+        balanceRemaining: r[9] !== undefined && r[9] !== '' ? (parseFloat(r[9]) || 0) : (parseFloat(r[1]) || 0),
+        tenureMonths: parseInt(r[10]) || 0,
+        paidMonths: parseInt(r[11]) || 0,
+        payerName: r[12]?.toString().trim() || 'Ajesh',
+        shareRecipient: r[13]?.toString().trim() || 'Nisha',
         id: index + 1
       }))
-      .filter(r => r.familyCode === familyCode);
+      .filter(r => String(r.familyCode ?? '').trim().toUpperCase() === targetCode);
 
     const expenses = expensesRows.slice(1)
-      .filter(r => r[6] === familyCode)
+      .filter(r => String(r[6] ?? '').trim().toUpperCase() === targetCode)
       .map(r => ({
         date: r[0],
         amount: parseFloat(r[1]) || 0,
@@ -47,7 +58,7 @@ export async function GET(request: Request) {
       }));
 
     const repayments = repaymentRows.slice(1)
-      .filter(r => r[4] === familyCode)
+      .filter(r => String(r[4] ?? '').trim().toUpperCase() === targetCode)
       .map(r => ({
         date: r[0],
         amount: parseFloat(r[1]) || 0,
@@ -56,7 +67,39 @@ export async function GET(request: Request) {
         familyCode: r[4]
       }));
 
-    return NextResponse.json({ loans, expenses, repayments });
+    const configRow = homeLoanConfigRows.slice(1).find(r => String(r[0] ?? '').trim().toUpperCase() === targetCode);
+    const homeLoanConfig = configRow ? {
+      familyCode: String(configRow[0] ?? '').trim(),
+      principalAmount: parseFloat(configRow[1]) || 0,
+      interestRate: parseFloat(configRow[2]) || 0,
+      startDate: String(configRow[3] ?? '').trim(),
+      balanceRemaining: parseFloat(configRow[4]) || 0,
+      monthlyEMI: parseFloat(configRow[5]) || 0,
+      dueDay: parseInt(configRow[6]) || 10,
+      payerName: String(configRow[7] ?? '').trim() || 'Ajesh',
+      shareRecipient: String(configRow[8] ?? '').trim() || 'Nisha',
+      updatedAt: String(configRow[9] ?? '').trim(),
+      updatedBy: String(configRow[10] ?? '').trim(),
+    } : null;
+
+    const monthlyTracking = trackingRows.slice(1)
+      .map((r, index) => ({
+        monthKey: String(r[0] ?? '').trim(),
+        loanKey: String(r[1] ?? '').trim(),
+        familyCode: String(r[2] ?? '').trim(),
+        paidToPayer: String(r[3] ?? '').toLowerCase() === 'true',
+        paidAt: String(r[4] ?? '').trim(),
+        paidBy: String(r[5] ?? '').trim(),
+        sharedWithRecipient: String(r[6] ?? '').toLowerCase() === 'true',
+        sharedAt: String(r[7] ?? '').trim(),
+        sharedBy: String(r[8] ?? '').trim(),
+        autoSmsDetected: String(r[9] ?? '').toLowerCase() === 'true',
+        note: String(r[10] ?? '').trim(),
+        id: index + 1,
+      }))
+      .filter(r => r.familyCode.toUpperCase() === targetCode && r.monthKey === monthKey);
+
+    return NextResponse.json({ loans, expenses, repayments, homeLoanConfig, monthlyTracking });
 
   } catch (error: any) {
     console.error('Loans GET Error:', error);
@@ -69,12 +112,35 @@ export async function POST(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { action, loanName, amount, monthlyEMI, assignedTo, familyCode, expense } = await request.json();
+    const {
+      action,
+      loanName,
+      amount,
+      monthlyEMI,
+      assignedTo,
+      familyCode,
+      expense,
+      interestRate,
+      startDate,
+      balanceRemaining,
+      tenureMonths,
+      paidMonths,
+      payerName,
+      shareRecipient,
+      monthKey,
+      loanKey,
+      paidToPayer,
+      sharedWithRecipient,
+      autoSmsDetected,
+      note,
+      logAmount,
+    } = await request.json();
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ error: 'Sheet not found' }, { status: 500 });
 
     if (action === 'addLoan') {
+      const effectiveBalance = balanceRemaining !== undefined && balanceRemaining !== '' ? balanceRemaining : amount;
       await service.appendRow(spreadsheetId, 'Loans', [
         loanName,
         amount,
@@ -82,13 +148,20 @@ export async function POST(request: Request) {
         assignedTo,
         familyCode,
         email,
-        'Active'
+        'Active',
+        interestRate ?? 0,
+        startDate || '',
+        effectiveBalance,
+        tenureMonths ?? 0,
+        paidMonths ?? 0,
+        payerName || 'Ajesh',
+        shareRecipient || 'Nisha'
       ]);
 
       await service.appendRow(spreadsheetId, 'Monthly_Expenses', [
         `EMI: ${loanName}`,
         monthlyEMI,
-        1,
+        10,
         'Unpaid',
         familyCode,
         email,
@@ -97,6 +170,84 @@ export async function POST(request: Request) {
         loanName,
         assignedTo
       ]);
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'confirmMonthlyTracking') {
+      if (!familyCode || !loanKey) {
+        return NextResponse.json({ error: 'familyCode and loanKey are required' }, { status: 400 });
+      }
+      const targetMonth = (monthKey || new Date().toISOString().slice(0, 7)).toString().trim();
+      const targetCode = familyCode.toString().trim().toUpperCase();
+      const nowIso = new Date().toISOString();
+
+      const trackingRows = await service.getSheetData(spreadsheetId, 'EMI_Monthly_Tracking!A:K');
+      const existingIdx = trackingRows.findIndex(
+        (r, idx) => idx > 0 &&
+          String(r[0] ?? '').trim() === targetMonth &&
+          String(r[1] ?? '').trim().toLowerCase() === loanKey.toString().trim().toLowerCase() &&
+          String(r[2] ?? '').trim().toUpperCase() === targetCode
+      );
+
+      const existing = existingIdx !== -1 ? trackingRows[existingIdx] : null;
+      const nextPaid = paidToPayer !== undefined ? Boolean(paidToPayer) : (String(existing?.[3] ?? '').toLowerCase() === 'true');
+      const nextPaidAt = paidToPayer === true ? (existing?.[4] || nowIso) : (existing?.[4] || '');
+      const nextPaidBy = paidToPayer === true ? (existing?.[5] || email) : (existing?.[5] || '');
+      const nextShared = sharedWithRecipient !== undefined ? Boolean(sharedWithRecipient) : (String(existing?.[6] ?? '').toLowerCase() === 'true');
+      const nextSharedAt = sharedWithRecipient === true ? (existing?.[7] || nowIso) : (existing?.[7] || '');
+      const nextSharedBy = sharedWithRecipient === true ? (existing?.[8] || email) : (existing?.[8] || '');
+      const nextAutoSms = autoSmsDetected !== undefined ? Boolean(autoSmsDetected) : (String(existing?.[9] ?? '').toLowerCase() === 'true');
+      const nextNote = note !== undefined ? String(note) : (existing?.[10] || '');
+
+      const rowValues = [
+        targetMonth,
+        loanKey.toString().trim(),
+        familyCode.toString().trim(),
+        nextPaid ? 'TRUE' : 'FALSE',
+        nextPaidAt,
+        nextPaidBy,
+        nextShared ? 'TRUE' : 'FALSE',
+        nextSharedAt,
+        nextSharedBy,
+        nextAutoSms ? 'TRUE' : 'FALSE',
+        nextNote
+      ];
+
+      if (existingIdx !== -1) {
+        await service.updateRow(spreadsheetId, `EMI_Monthly_Tracking!A${existingIdx + 1}:K${existingIdx + 1}`, rowValues);
+      } else {
+        await service.appendRow(spreadsheetId, 'EMI_Monthly_Tracking', rowValues);
+      }
+
+      // If EMI paid for the first time this month, log to Family_Expenses (EMI) and mark linked Monthly_Expenses paid
+      const wasAlreadyPaid = String(existing?.[3] ?? '').toLowerCase() === 'true';
+      if (paidToPayer === true && !wasAlreadyPaid) {
+        const parsedAmount = Number(logAmount) || 0;
+        if (parsedAmount > 0) {
+          await service.appendRow(spreadsheetId, 'Family_Expenses', [
+            nowIso,
+            parsedAmount,
+            loanKey.toString().toLowerCase().includes('home') ? 'Home Loan' : 'EMI',
+            nextNote || `Monthly EMI paid (${loanKey})`,
+            email,
+            familyCode.toString().trim()
+          ]);
+        }
+
+        const monthlyRows = await service.getSheetData(spreadsheetId, 'Monthly_Expenses!A:J');
+        const linkedIdx = monthlyRows.findIndex(
+          (r, idx) => idx > 0 &&
+            String(r[4] ?? '').trim().toUpperCase() === targetCode &&
+            (String(r[8] ?? '').trim().toLowerCase() === loanKey.toString().trim().toLowerCase() ||
+              String(r[0] ?? '').trim().toLowerCase().includes(loanKey.toString().trim().toLowerCase()))
+        );
+        if (linkedIdx !== -1) {
+          const rNum = linkedIdx + 1;
+          await service.updateSheetData(spreadsheetId, `Monthly_Expenses!D${rNum}`, [['Paid']]);
+          await service.updateSheetData(spreadsheetId, `Monthly_Expenses!G${rNum}:H${rNum}`, [[nowIso, email]]);
+        }
+      }
 
       return NextResponse.json({ success: true });
     }
@@ -127,7 +278,21 @@ export async function PUT(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id, name, amount, monthlyEMI, assignedTo, status } = await request.json();
+    const {
+      id,
+      name,
+      amount,
+      monthlyEMI,
+      assignedTo,
+      status,
+      interestRate,
+      startDate,
+      balanceRemaining,
+      tenureMonths,
+      paidMonths,
+      payerName,
+      shareRecipient,
+    } = await request.json();
     if (id === undefined || !name || amount === undefined || monthlyEMI === undefined || !assignedTo || !status) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
@@ -144,20 +309,26 @@ export async function PUT(request: Request) {
     }
 
     // Get the old loan name to find linked monthly dues
-    const oldLoans = await service.getSheetData(spreadsheetId, 'Loans!A:G');
+    const oldLoans = await service.getSheetData(spreadsheetId, 'Loans!A:N');
     const oldLoanRow = oldLoans[id]; // row index is id
     if (!oldLoanRow) return NextResponse.json({ error: 'Loan not found' }, { status: 404 });
     const oldLoanName = oldLoanRow[0];
 
     const rowIndex = id + 1; // row index in sheet is id + 1
 
-    // Update the Loan entry: Name (col A), Amount (col B), EMI (col C), Assigned To (col D), Status (col G)
+    // Update the Loan entry: A-D, G, and H-N config fields
     const loanUpdates = [
-      { range: `Loans!A${rowIndex}`, values: [[name]] },
-      { range: `Loans!B${rowIndex}`, values: [[amount]] },
-      { range: `Loans!C${rowIndex}`, values: [[monthlyEMI]] },
-      { range: `Loans!D${rowIndex}`, values: [[assignedTo]] },
-      { range: `Loans!G${rowIndex}`, values: [[status]] }
+      { range: `Loans!A${rowIndex}:D${rowIndex}`, values: [[name, amount, monthlyEMI, assignedTo]] },
+      { range: `Loans!G${rowIndex}:N${rowIndex}`, values: [[
+        status,
+        interestRate !== undefined ? interestRate : (parseFloat(oldLoanRow[7]) || 0),
+        startDate !== undefined ? startDate : (oldLoanRow[8] || ''),
+        balanceRemaining !== undefined ? balanceRemaining : (oldLoanRow[9] !== undefined && oldLoanRow[9] !== '' ? parseFloat(oldLoanRow[9]) : amount),
+        tenureMonths !== undefined ? tenureMonths : (parseInt(oldLoanRow[10]) || 0),
+        paidMonths !== undefined ? paidMonths : (parseInt(oldLoanRow[11]) || 0),
+        payerName !== undefined ? payerName : (oldLoanRow[12] || 'Ajesh'),
+        shareRecipient !== undefined ? shareRecipient : (oldLoanRow[13] || 'Nisha'),
+      ]] }
     ];
 
     for (const update of loanUpdates) {

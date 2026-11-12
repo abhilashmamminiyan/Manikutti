@@ -41,7 +41,10 @@ export async function GET(request: Request) {
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
 
-    const rows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
+    const [rows, configRows] = await Promise.all([
+      service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G'),
+      service.getSheetData(spreadsheetId, 'HomeLoan_Config!A:K'),
+    ]);
     const hasHeader = String(rows[0]?.[0] ?? '').trim().toLowerCase() === 'date';
     const startIdx = hasHeader ? 1 : 0;
 
@@ -61,7 +64,22 @@ export async function GET(request: Request) {
       })
       .filter(r => (r.date || r.totalPayment > 0 || r.familyCode) && normalizeFamilyCode(r.familyCode) === targetCode);
 
-    return NextResponse.json({ items });
+    const cfgRow = configRows.slice(1).find(r => normalizeFamilyCode(r[0]) === targetCode);
+    const config = cfgRow ? {
+      familyCode: String(cfgRow[0] ?? '').trim(),
+      principalAmount: parseLoanAmount(cfgRow[1]),
+      interestRate: parseLoanAmount(cfgRow[2]),
+      startDate: String(cfgRow[3] ?? '').trim(),
+      balanceRemaining: parseLoanAmount(cfgRow[4]),
+      monthlyEMI: parseLoanAmount(cfgRow[5]),
+      dueDay: parseInt(String(cfgRow[6] ?? '10'), 10) || 10,
+      payerName: String(cfgRow[7] ?? '').trim() || 'Ajesh',
+      shareRecipient: String(cfgRow[8] ?? '').trim() || 'Nisha',
+      updatedAt: String(cfgRow[9] ?? '').trim(),
+      updatedBy: String(cfgRow[10] ?? '').trim(),
+    } : null;
+
+    return NextResponse.json({ items, config });
 
   } catch (error: any) {
     reportHomeLoanFailure('GET', error);
@@ -74,10 +92,66 @@ export async function POST(request: Request) {
     const email = await getAuthUserEmail(request);
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { date, totalPayment, principal, interest, balance, familyCode } = await request.json();
+    const body = await request.json();
+    const { action, date, totalPayment, principal, interest, balance, familyCode } = body;
     const service = new GoogleSheetsService(email);
     const spreadsheetId = await service.findOrCreateSheet('Family');
     if (!spreadsheetId) return NextResponse.json({ items: [] });
+
+    if (action === 'saveConfig') {
+      const targetCode = normalizeFamilyCode(familyCode);
+      if (!targetCode) return NextResponse.json({ error: 'Family code required' }, { status: 400 });
+
+      const members = await service.getSheetData(spreadsheetId, 'Family_Members!A:C');
+      const memberRow = members.slice(1).find(m => m[1]?.toLowerCase() === email.toLowerCase());
+      if (!memberRow || memberRow[2] !== 'Admin') {
+        return NextResponse.json({ error: 'Only Admins can configure Home Loan settings' }, { status: 403 });
+      }
+
+      const configRows = await service.getSheetData(spreadsheetId, 'HomeLoan_Config!A:K');
+      const existingIdx = configRows.findIndex((r, idx) => idx > 0 && normalizeFamilyCode(r[0]) === targetCode);
+      const nowIso = new Date().toISOString();
+
+      const rowValues = [
+        String(familyCode).trim(),
+        parseLoanAmount(body.principalAmount),
+        parseLoanAmount(body.interestRate),
+        String(body.startDate || '').trim(),
+        parseLoanAmount(body.balanceRemaining),
+        parseLoanAmount(body.monthlyEMI),
+        parseInt(String(body.dueDay || '10'), 10) || 10,
+        String(body.payerName || 'Ajesh').trim() || 'Ajesh',
+        String(body.shareRecipient || 'Nisha').trim() || 'Nisha',
+        nowIso,
+        email,
+      ];
+
+      if (existingIdx !== -1) {
+        await service.updateRow(spreadsheetId, `HomeLoan_Config!A${existingIdx + 1}:K${existingIdx + 1}`, rowValues);
+      } else {
+        await service.appendRow(spreadsheetId, 'HomeLoan_Config', rowValues);
+      }
+
+      if (body.syncBaseline) {
+        const ledgerRows = await service.getSheetData(spreadsheetId, 'HomeLoan_Ledger!A:G');
+        const hasLedgerForFamily = ledgerRows.slice(1).some(r => normalizeFamilyCode(r[5]) === targetCode);
+        const bal = parseLoanAmount(body.balanceRemaining);
+        const emi = parseLoanAmount(body.monthlyEMI);
+        if (!hasLedgerForFamily || body.appendCurrentSnapshot) {
+          await service.appendRow(spreadsheetId, 'HomeLoan_Ledger', [
+            body.asOfDate || new Date().toISOString().split('T')[0],
+            emi,
+            0,
+            0,
+            bal,
+            String(familyCode).trim(),
+            email,
+          ]);
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    }
 
     await service.appendRow(spreadsheetId, 'HomeLoan_Ledger', [
       date,
