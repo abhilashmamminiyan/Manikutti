@@ -230,6 +230,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({
                 <InputLabel>Role</InputLabel>
                 <Select value={newRole} label="Role" onChange={(e) => setNewRole(e.target.value)}>
                   <MenuItem value="Basic">Basic (Simple)</MenuItem>
+                  <MenuItem value="Demo">Demo (SMS & Loans)</MenuItem>
                   <MenuItem value="Member">Member</MenuItem>
                   <MenuItem value="Partner">Partner</MenuItem>
                 </Select>

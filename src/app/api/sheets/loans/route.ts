@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleSheetsService } from '@/lib/googleSheets';
 import { getAuthUserEmail } from '@/lib/authHelper';
+import { sendFcmToUsers } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request) {
   try {
@@ -246,6 +247,93 @@ export async function POST(request: Request) {
           const rNum = linkedIdx + 1;
           await service.updateSheetData(spreadsheetId, `Monthly_Expenses!D${rNum}`, [['Paid']]);
           await service.updateSheetData(spreadsheetId, `Monthly_Expenses!G${rNum}:H${rNum}`, [[nowIso, email]]);
+        }
+
+        // Send Notification to Mom and Abhilash as requested:
+        // "as ajesh paid loan 'loan-name' amount 'amount' at 'date'"
+        let payerDisplayName = 'Ajesh';
+        try {
+          const loansRows = await service.getSheetData(spreadsheetId, 'Loans!A:N');
+          const matchedLoan = loansRows.slice(1).find(
+            (r) => String(r[0] ?? '').trim().toLowerCase() === loanKey.toString().trim().toLowerCase()
+          );
+          if (matchedLoan && matchedLoan[12]) {
+            payerDisplayName = String(matchedLoan[12]).trim();
+          }
+        } catch (_) {}
+
+        const formattedAmount = parsedAmount > 0 ? parsedAmount.toLocaleString('en-IN') : String(logAmount || '');
+        const dateObj = new Date(nowIso);
+        const formattedDate = dateObj.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+
+        const notifTitle = `EMI Payment Completed: ${loanKey}`;
+        const notifBody = `${payerDisplayName} paid loan "${loanKey}" amount "₹${formattedAmount}" at "${formattedDate}"`;
+
+        // 1. Add in-app Notification row in Google Sheets
+        try {
+          await service.appendRow(spreadsheetId, 'Notifications', [
+            nowIso,
+            notifTitle,
+            notifBody,
+            familyCode.toString().trim(),
+            'emi_payment',
+            email
+          ]);
+        } catch (e) {
+          console.error('[Loans] Failed to append notification row:', e);
+        }
+
+        // 2. Dispatch FCM Push Notification to Mom & Abhilash
+        try {
+          const membersRows = await service.getSheetData(spreadsheetId, 'Family_Members!A:G');
+          const familyMembers = membersRows.slice(1).filter(
+            (m) => String(m[0] ?? '').trim().toUpperCase() === targetCode
+          );
+
+          const targetEmails = new Set<string>();
+          for (const m of familyMembers) {
+            const mEmail = String(m[1] ?? '').trim().toLowerCase();
+            const mRole = String(m[2] ?? '').trim().toLowerCase();
+            const mNick = String(m[4] ?? '').trim().toLowerCase();
+            if (!mEmail.includes('@')) continue;
+
+            // Abhilash (Admin)
+            if (mEmail.includes('abhilash') || mRole === 'admin' || mNick.includes('abhilash')) {
+              targetEmails.add(mEmail);
+            }
+            // Mom (Nisha)
+            if (mEmail.includes('nisha') || mNick.includes('nisha') || mNick.includes('mom') || mNick.includes('mother')) {
+              targetEmails.add(mEmail);
+            }
+          }
+
+          if (targetEmails.size === 0) {
+            familyMembers.forEach((m) => {
+              const e = String(m[1] ?? '').trim().toLowerCase();
+              if (e.includes('@')) targetEmails.add(e);
+            });
+          }
+
+          if (targetEmails.size > 0) {
+            await sendFcmToUsers(Array.from(targetEmails), {
+              title: notifTitle,
+              body: notifBody,
+              channelId: 'payment_channel',
+              data: {
+                type: 'emi_paid',
+                loanKey: String(loanKey),
+                amount: String(parsedAmount),
+                payerName: payerDisplayName,
+                familyCode: targetCode,
+              },
+            });
+          }
+        } catch (fcmErr) {
+          console.error('[Loans] Failed to send FCM for EMI payment:', fcmErr);
         }
       }
 
