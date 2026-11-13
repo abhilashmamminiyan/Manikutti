@@ -310,8 +310,8 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#1e293b', color: 'white' },
           }}
         >
-          <Toolbar />
-          <Box sx={{ overflow: 'auto', mt: 2 }}>
+          <Toolbar sx={{ minHeight: { xs: 64, sm: 70 } }} />
+          <Box sx={{ overflowY: 'auto', overflowX: 'hidden', pt: 1, flexGrow: 1 }}>
             <List>
               {ADMIN_NAV_TABS.map((tab) => {
                 const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
@@ -385,8 +385,8 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
           }}
           open
         >
-          <Toolbar />
-          <Box sx={{ overflow: 'auto', mt: 2 }}>
+          <Toolbar sx={{ minHeight: { xs: 64, sm: 70 } }} />
+          <Box sx={{ overflowY: 'auto', overflowX: 'hidden', pt: 1, flexGrow: 1 }}>
             <List>
               {ADMIN_NAV_TABS.map((tab) => {
                 const selected = pathname.includes('/emi/home-loan') && tab.id === 'home-loan' ? true : activeTab === tab.id && !pathname.includes('/emi/home-loan');
@@ -447,7 +447,18 @@ export default function AdminDashboard({ children }: { children?: React.ReactNod
       </Box>
 
       {/* Main Content Area */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4, mt: 8, maxWidth: '100vw', overflowX: 'hidden' }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 2, sm: 3, md: 4 },
+          maxWidth: '100%',
+          overflowX: 'hidden',
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: 64, sm: 70 } }} />
         {children ? children : (
           <>
             {activeTab === 'overview' && (

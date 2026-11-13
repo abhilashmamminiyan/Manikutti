@@ -292,7 +292,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
       {/* Master AI & Firebase Sync Control Card */}
       <Paper
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 3 },
           borderRadius: 4,
           border: '1px solid',
           borderColor: aiEnabled ? 'rgba(0,105,114,0.35)' : 'rgba(148,163,184,0.4)',
@@ -300,9 +300,9 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <AutoAwesomeIcon sx={{ fontSize: 34, color: aiEnabled ? '#006972' : 'text.disabled' }} />
-            <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
+            <AutoAwesomeIcon sx={{ fontSize: 34, color: aiEnabled ? '#006972' : 'text.disabled', flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
               <Typography variant="h6" sx={{ fontFamily: 'Manrope', fontWeight: 'bold' }}>
                 Gemini AI Screenshot Extraction (Global Family Toggle)
               </Typography>
@@ -312,6 +312,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
             </Box>
           </Box>
           <FormControlLabel
+            sx={{ flexShrink: 0, m: 0 }}
             control={
               <Switch
                 checked={aiEnabled}
@@ -326,8 +327,8 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
       </Paper>
 
       {/* Role Selector + Per-Feature Permissions */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '4fr 8fr' }, gap: 3 }}>
-        <Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '320px 1fr', xl: '360px 1fr' }, gap: 3 }}>
+        <Box sx={{ minWidth: 0 }}>
           <Paper sx={{ p: 2.5, borderRadius: 4, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -362,13 +363,13 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
                   >
                     <ListItemText
                       primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
                           <Typography sx={{ fontWeight: 'bold' }}>{role.roleName}</Typography>
                           <Chip
                             label={`${enabledCount}/${featureCatalog.length}`}
                             size="small"
                             color={isSelected ? 'primary' : 'default'}
-                            sx={{ height: 20, fontSize: 11 }}
+                            sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
                           />
                         </Box>
                       }
@@ -394,10 +395,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
           </Paper>
         </Box>
 
-        <Box>
-          <Paper sx={{ p: 3, borderRadius: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-              <Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'flex-start' }, flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 2 }}>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                   Permissions: {selectedRoleName}
                 </Typography>
@@ -405,12 +406,12 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
                   Core manual expense entry and settings remain enabled for every role. Toggle mobile modules below:
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Button size="small" variant="outlined" onClick={() => applyPresetToDraft('all')}>
                   Enable All
                 </Button>
                 <Button size="small" variant="outlined" onClick={() => applyPresetToDraft('minimal')}>
-                  Minimal (Screenshot Only)
+                  Minimal
                 </Button>
                 <Button
                   size="small"
@@ -418,7 +419,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
                   startIcon={<SaveIcon />}
                   disabled={saving || !selectedRole}
                   onClick={handleSaveRole}
-                  sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' } }}
+                  sx={{ bgcolor: '#006972', '&:hover': { bgcolor: '#00535b' }, whiteSpace: 'nowrap' }}
                 >
                   Save Changes
                 </Button>
@@ -441,13 +442,13 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#006972', mb: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     {groupName}
                   </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(280px, 1fr))' }, gap: 1.5 }}>
                     {items.map((item) => {
                       const checked = Boolean(draftPermissions[item.key]);
                       const aiOverriddenOff =
                         !aiEnabled && (item.key === 'ai_screenshot_extraction' || item.key === 'ai_advisor');
                       return (
-                        <Box key={item.key}>
+                        <Box key={item.key} sx={{ minWidth: 0 }}>
                           <Paper
                             variant="outlined"
                             sx={{
@@ -457,24 +458,26 @@ export const RolesTab: React.FC<RolesTabProps> = ({ members, onRefreshStats }) =
                               justifyContent: 'space-between',
                               alignItems: 'center',
                               gap: 1.5,
+                              minWidth: 0,
                               opacity: aiOverriddenOff ? 0.65 : 1,
                               height: '100%',
                             }}
                           >
-                            <Box sx={{ flex: 1 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', wordBreak: 'break-word' }}>
                                   {item.label}
                                 </Typography>
                                 {aiOverriddenOff && (
-                                  <Chip label="Master AI Off" size="small" color="warning" sx={{ height: 18, fontSize: 10 }} />
+                                  <Chip label="Master AI Off" size="small" color="warning" sx={{ height: 18, fontSize: 10, flexShrink: 0 }} />
                                 )}
                               </Box>
-                              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', lineHeight: 1.3, mt: 0.5 }}>
                                 {item.description}
                               </Typography>
                             </Box>
                             <Switch
+                              sx={{ flexShrink: 0 }}
                               checked={checked}
                               onChange={(e) =>
                                 setDraftPermissions((prev) => ({
