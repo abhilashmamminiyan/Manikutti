@@ -5,6 +5,7 @@ import type { GoogleSheetsService } from '@/lib/googleSheets';
 export const FEATURE_KEYS = [
   'home_loan',
   'loans_emi_ledger',
+  'repayment_schedules',
   'monthly_dues',
   'bills_utilities',
   'mobile_recharges',
@@ -12,6 +13,7 @@ export const FEATURE_KEYS = [
   'screenshots',
   'bank_statement',
   'voice_logging',
+  'sms_auto_tracking',
   'ai_screenshot_extraction',
   'ai_advisor',
   'budget_progress',
@@ -69,6 +71,12 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     key: 'loans_emi_ledger',
     label: 'Family Loans & EMIs Card',
     description: 'Unified active loans & monthly EMI commitments card.',
+    group: 'Dashboard Cards',
+  },
+  {
+    key: 'repayment_schedules',
+    label: 'Repayment Schedules & Amortization',
+    description: 'Detailed month-by-month loan repayment schedules, remaining principal/interest, and rates.',
     group: 'Dashboard Cards',
   },
   {
@@ -145,6 +153,12 @@ export const FEATURE_CATALOG: FeatureMeta[] = [
     description: 'Speak expenses hands-free from Quick Access.',
     group: 'AI & Automation',
   },
+  {
+    key: 'sms_auto_tracking',
+    label: 'SMS Auto-Tracking & Zero-Confirmation EMI',
+    description: 'Automatic bank SMS detection that marks exact matching EMI debits as paid with zero user confirmation.',
+    group: 'AI & Automation',
+  },
 ];
 
 export interface RoleDefinition {
@@ -211,6 +225,8 @@ export function buildDefaultRolesConfig(): FamilyRolesConfig {
         permissions: createPermissionsMap(false, {
           home_loan: true,
           loans_emi_ledger: true,
+          repayment_schedules: true,
+          sms_auto_tracking: true,
           monthly_dues: true,
           screenshots: true,
           smart_scan: true,
@@ -220,11 +236,13 @@ export function buildDefaultRolesConfig(): FamilyRolesConfig {
       },
       Demo: {
         roleName: 'Demo',
-        description: 'Demo view: SMS expense tracking, marking assigned loans/EMIs paid, and tracking repayment schedules.',
+        description: 'Testing preset: SMS auto-tracking with zero-confirmation EMI payments, marking assigned loans paid, and repayment schedules.',
         isSystem: true,
         permissions: createPermissionsMap(false, {
           home_loan: true,
           loans_emi_ledger: true,
+          repayment_schedules: true,
+          sms_auto_tracking: true,
           family_ledger: true,
         }),
       },
