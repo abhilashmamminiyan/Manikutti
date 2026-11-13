@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Paper Ledger - Simple Finance Tracker</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['Lora', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            paper: {
+              50: '#FDFCF9',
+              100: '#F9F6F0',
+              200: '#F1EBE1',
+              300: '#E6DFD3',
+              400: '#D2C7B6',
+              border: '#E8E2D8',
+              ruled: '#EFEAE1',
+            },
+            ink: {
+              navy: '#182430',
+              slate: '#2E3D49',
+              muted: '#637381',
+              faint: '#94A3B8',
+            },
+            forest: {
+              DEFAULT: '#266548',
+              light: '#E8F5EE',
+              border: '#BDE4CF',
+            },
+            terracotta: {
+              DEFAULT: '#B93E2B',
+              light: '#FDF1EE',
+              border: '#F8CECE',
+            },
+            sbi: {
+              DEFAULT: '#0B4F8A',
+              light: '#EBF3FA',
+              border: '#BCD7EF',
+            },
+            canara: {
+              DEFAULT: '#9A6700',
+              light: '#FDF6E3',
+              border: '#F6E4AF',
+            }
+          },
+          boxShadow: {
+            'paper': '0 1px 3px rgba(35, 30, 20, 0.05), 0 6px 16px rgba(35, 30, 20, 0.03)',
+            'paper-lift': '0 4px 12px rgba(35, 30, 20, 0.08), 0 16px 28px rgba(35, 30, 20, 0.04)',
+            'slip': '0 2px 6px rgba(45, 35, 20, 0.06)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #F9F6F0;
+      color: #182430;
+      background-image: 
+        radial-gradient(#E8E2D8 0.75px, transparent 0.75px),
+        radial-gradient(#E8E2D8 0.75px, #F9F6F0 0.75px);
+      background-size: 30px 30px;
+      background-position: 0 0, 15px 15px;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 450, 'GRAD' 0, 'opsz' 20;
+    }
+    .ruled-line {
+      border-bottom: 1px solid #EFEAE1;
+    }
+    .stamp-badge {
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-feature-settings: "smcp" 1;
+    }
+    .spiral-binder {
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 28px,
+        #D2C7B6 28px,
+        #D2C7B6 32px
+      );
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased pb-20">
+
+  <!-- TOP HEADER / DESK BAR -->
+  <header class="sticky top-0 z-40 bg-[#F9F6F0]/90 backdrop-blur-md border-b border-paper-border px-4 sm:px-8 py-3.5 transition-all">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Notebook Badge Icon -->
+        <div class="w-10 h-10 rounded-lg bg-paper-50 border border-paper-border flex items-center justify-center shadow-slip text-ink-navy">
+          <span class="material-symbols-outlined text-2xl text-ink-slate">menu_book</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-serif font-semibold text-lg text-ink-navy tracking-tight">The Paper Ledger</h1>
+            <span class="text-[10px] font-mono uppercase bg-paper-200 text-ink-slate font-bold px-2 py-0.5 rounded-full border border-paper-300">v2.4 Simple</span>
+          </div>
+          <p class="text-xs text-ink-muted">Personal & Family Daily Cashbook &bull; Manikutti Hub</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions & Profile -->
+      <div class="flex items-center gap-2.5">
+        <!-- Ledger Mode Switcher -->
+        <div class="inline-flex p-1 bg-paper-200 border border-paper-border rounded-lg text-xs font-medium">
+          <button id="btnTabPersonal" onclick="switchLedgerView('personal')" class="px-3 py-1 rounded-md bg-paper-50 text-ink-navy shadow-sm font-semibold transition-all">Personal</button>
+          <button id="btnTabFamily" onclick="switchLedgerView('family')" class="px-3 py-1 rounded-md text-ink-muted hover:text-ink-navy transition-all">Family</button>
+        </div>
+
+        <button onclick="openStatementModal()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-paper-border bg-paper-50 hover:bg-paper-100 text-xs font-medium text-ink-slate shadow-slip transition-all">
+          <span class="material-symbols-outlined text-base text-ink-muted">receipt_long</span>
+          <span>Upload Statement</span>
+        </button>
+
+        <div class="w-8 h-8 rounded-full bg-paper-200 border border-paper-300 flex items-center justify-center text-xs font-mono font-bold text-ink-slate">
+          AK
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-8 pt-6 space-y-6">
+
+    <!-- HERO: DUAL-BANK PASSBOOK & NET CASH SUMMARY -->
+    <section class="grid grid-cols-1 md:grid-cols-12 gap-5">
+      
+      <!-- Total Available Net Liquidity -->
+      <div class="md:col-span-5 bg-paper-50 rounded-2xl border border-paper-border p-6 shadow-paper flex flex-col justify-between relative overflow-hidden">
+        <!-- Ruled background accent -->
+        <div class="absolute inset-x-0 top-0 h-1.5 bg-ink-navy"></div>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="stamp-badge text-[11px] font-bold text-ink-muted">Total Available Liquid Cash</span>
+            <span class="inline-flex items-center gap-1 text-[11px] font-mono text-forest bg-forest-light px-2 py-0.5 rounded-full border border-forest-border">
+              <span class="w-1.5 h-1.5 rounded-full bg-forest animate-pulse"></span>
+              Live Sync
+            </span>
+          </div>
+          <div class="flex items-baseline gap-2 pt-1">
+            <span class="font-mono text-3xl sm:text-4xl font-bold tracking-tight text-ink-navy" id="totalNetBalance">₹1,48,250.00</span>
+          </div>
+          <p class="text-xs text-ink-muted pt-1">Aggregate liquid balance across verified accounts.</p>
+        </div>
+
+        <!-- Monthly Spend Pace Pencil Meter -->
+        <div class="pt-5 mt-4 border-t border-paper-ruled">
+          <div class="flex justify-between items-center text-xs mb-1.5">
+            <span class="text-ink-muted flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">edit_note</span> Monthly Burn vs Salary
+            </span>
+            <span class="font-mono font-semibold text-ink-navy">₹32,450 / ₹85,000 (38%)</span>
+          </div>
+          <div class="w-full bg-paper-200 h-2.5 rounded-full overflow-hidden border border-paper-300 p-0.5">
+            <div class="bg-ink-navy h-full rounded-full transition-all duration-500" style="width: 38%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] text-ink-muted pt-1 font-mono">
+            <span>Pace: ₹1,080 / day</span>
+            <span>17 days left in month</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DUAL BANK PASSBOOK CARDS (SBI + CANARA) -->
+      <div class="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        
+        <!-- SBI Passbook Card -->
+        <div class="bg-paper-50 rounded-2xl border border-paper-border p-5 shadow-paper relative hover:shadow-paper-lift transition-all">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-md bg-sbi-light border border-sbi-border flex items-center justify-center text-sbi font-bold text-xs font-mono">
+                SBI
+              </span>
+              <div>
+                <h3 class="text-xs font-bold text-ink-navy">State Bank of India</h3>
+                <p class="text-[10px] font-mono text-ink-muted">A/c **4821 &bull; Salary Primary</p>
+              </div>
+            </div>
+            <span class="stamp-badge text-[10px] font-bold text-sbi bg-sbi-light px-2 py-0.5 rounded border border-sbi-border">
+              VERIFIED
+            </span>
+          </div>
+
+          <div class="my-3">
+            <div class="text-[11px] text-ink-muted font-medium">Cleared Balance</div>
+            <div class="font-mono text-2xl font-bold text-ink-navy pt-0.5" id="sbiCardBalance">₹96,400.00</div>
+          </div>
+
+          <div class="pt-3 border-t border-paper-ruled flex items-center justify-between text-[11px]">
+            <span class="text-ink-muted font-mono">Baseline: 01 Nov</span>
+            <button onclick="promptVerifyBalance('SBI', 96400)" class="text-sbi font-semibold hover:underline flex items-center gap-0.5">
+              <span>Adjust</span>
+              <span class="material-symbols-outlined text-xs">tune</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Canara Bank Passbook Card -->
+        <div class="bg-paper-50 rounded-2xl border border-paper-border p-5 shadow-paper relative hover:shadow-paper-lift transition-all">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-md bg-canara-light border border-canara-border flex items-center justify-center text-canara font-bold text-xs font-mono">
+                CNB
+              </span>
+              <div>
+                <h3 class="text-xs font-bold text-ink-navy">Canara Bank</h3>
+                <p class="text-[10px] font-mono text-ink-muted">A/c **9130 &bull; Dues & EMI</p>
+              </div>
+            </div>
+            <span class="stamp-badge text-[10px] font-bold text-canara bg-canara-light px-2 py-0.5 rounded border border-canara-border">
+              VERIFIED
+            </span>
+          </div>
+
+          <div class="my-3">
+            <div class="text-[11px] text-ink-muted font-medium">Cleared Balance</div>
+            <div class="font-mono text-2xl font-bold text-ink-navy pt-0.5" id="canaraCardBalance">₹51,850.00</div>
+          </div>
+
+          <div class="pt-3 border-t border-paper-ruled flex items-center justify-between text-[11px]">
+            <span class="text-ink-muted font-mono">Baseline: 01 Nov</span>
+            <button onclick="promptVerifyBalance('Canara Bank', 51850)" class="text-canara font-semibold hover:underline flex items-center gap-0.5">
+              <span>Adjust</span>
+              <span class="material-symbols-outlined text-xs">tune</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- QUICK ADD PAPER DEPOSIT SLIP -->
+    <section class="bg-paper-50 rounded-2xl border-2 border-dashed border-paper-300 p-5 shadow-slip relative">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-paper-ruled">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-ink-slate text-xl">border_color</span>
+          <span class="font-serif font-semibold text-sm text-ink-navy">Paper Deposit & Expense Slip</span>
+          <span class="text-[11px] text-ink-muted">(Instant 1-Click Logging)</span>
+        </div>
+        <div class="flex items-center gap-1 bg-paper-200 p-0.5 rounded-lg text-xs font-medium border border-paper-border">
+          <button id="typeExpenseBtn" onclick="setSlipType('Expense')" class="px-2.5 py-1 rounded bg-terracotta text-white font-semibold shadow-xs">Expense</button>
+          <button id="typeIncomeBtn" onclick="setSlipType('Income')" class="px-2.5 py-1 rounded text-ink-muted hover:text-ink-navy">Income</button>
+          <button id="typeTransferBtn" onclick="setSlipType('Transfer')" class="px-2.5 py-1 rounded text-ink-muted hover:text-ink-navy">Transfer</button>
+        </div>
+      </div>
+
+      <form id="quickSlipForm" onsubmit="handleQuickLog(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+        
+        <!-- Amount Input -->
+        <div class="lg:col-span-3">
+          <label class="block text-[11px] font-mono uppercase text-ink-muted font-semibold mb-1">Amount (₹)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-ink-muted font-bold">₹</span>
+            <input 
+              id="slipAmount" 
+              type="number" 
+              step="any" 
+              required 
+              placeholder="0.00" 
+              class="w-full pl-8 pr-3 py-2 bg-paper-100 border border-paper-border rounded-lg font-mono font-bold text-ink-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink-navy/20 focus:border-ink-navy text-sm transition-all"
+            />
+          </div>
+        </div>
+
+        <!-- Bank Account Selector -->
+        <div class="lg:col-span-2">
+          <label class="block text-[11px] font-mono uppercase text-ink-muted font-semibold mb-1">Account</label>
+          <select 
+            id="slipBank" 
+            class="w-full py-2 px-3 bg-paper-100 border border-paper-border rounded-lg text-xs font-semibold text-ink-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink-navy/20 focus:border-ink-navy"
+          >
+            <option value="SBI">SBI (**4821)</option>
+            <option value="Canara Bank">Canara Bank (**9130)</option>
+          </select>
+        </div>
+
+        <!-- Category Selector -->
+        <div class="lg:col-span-2">
+          <label class="block text-[11px] font-mono uppercase text-ink-muted font-semibold mb-1">Category</label>
+          <select 
+            id="slipCategory" 
+            class="w-full py-2 px-3 bg-paper-100 border border-paper-border rounded-lg text-xs text-ink-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink-navy/20 focus:border-ink-navy"
+          >
+            <option value="Groceries">🛒 Groceries</option>
+            <option value="Food & Dining">🍲 Food & Dining</option>
+            <option value="Fuel & Travel">⛽ Fuel & Travel</option>
+            <option value="Utilities">💡 Utilities & Bills</option>
+            <option value="Shopping">🛍️ Shopping</option>
+            <option value="Medical">💊 Medical</option>
+            <option value="Salary">💼 Salary / Income</option>
+            <option value="Loan EMI">🏛️ Loan EMI</option>
+          </select>
+        </div>
+
+        <!-- Note / Narration -->
+        <div class="lg:col-span-3">
+          <label class="block text-[11px] font-mono uppercase text-ink-muted font-semibold mb-1">Narration / Note</label>
+          <input 
+            id="slipNote" 
+            type="text" 
+            placeholder="e.g. Milk & Vegetables, Shell petrol" 
+            class="w-full py-2 px-3 bg-paper-100 border border-paper-border rounded-lg text-xs text-ink-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink-navy/20 focus:border-ink-navy transition-all"
+          />
+        </div>
+
+        <!-- Submit Button -->
+        <div class="lg:col-span-2">
+          <button 
+            type="submit" 
+            class="w-full py-2 px-4 rounded-lg bg-ink-navy text-white hover:bg-ink-slate font-medium text-xs shadow-slip flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+          >
+            <span class="material-symbols-outlined text-sm">edit</span>
+            <span>Write to Ledger</span>
+          </button>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- MAIN NOTEBOOK TRANSACTION REGISTER -->
+    <section class="bg-paper-50 rounded-2xl border border-paper-border shadow-paper overflow-hidden">
+      
+      <!-- Notebook Paper Header -->
+      <div class="px-6 py-4 border-b border-paper-border flex flex-wrap items-center justify-between gap-3 bg-paper-100/60">
+        <div class="flex items-center gap-3">
+          <span class="font-serif font-bold text-base text-ink-navy">Daily Journal Entries</span>
+          <span class="text-xs font-mono text-ink-muted" id="rowCountDisplay">14 Records Listed</span>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <input 
+              type="text" 
+              id="searchLedger" 
+              oninput="filterLedger()" 
+              placeholder="Search memo or category..." 
+              class="text-xs py-1.5 pl-7 pr-3 bg-paper-50 border border-paper-border rounded-lg text-ink-navy focus:outline-none focus:border-ink-navy"
+            />
+            <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-sm text-ink-muted">search</span>
+          </div>
+
+          <select id="bankFilter" onchange="filterLedger()" class="text-xs py-1.5 px-2.5 bg-paper-50 border border-paper-border rounded-lg text-ink-navy font-medium">
+            <option value="All">All Banks</option>
+            <option value="SBI">SBI Only</option>
+            <option value="Canara Bank">Canara Only</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Ruled Sheet Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-paper-border bg-paper-200/50 text-[11px] font-mono text-ink-muted uppercase">
+              <th class="py-2.5 px-6 font-semibold w-28">Date</th>
+              <th class="py-2.5 px-4 font-semibold">Narration & Category</th>
+              <th class="py-2.5 px-4 font-semibold w-28">Account</th>
+              <th class="py-2.5 px-4 font-semibold w-24">Status</th>
+              <th class="py-2.5 px-6 font-semibold text-right w-36">Amount</th>
+              <th class="py-2.5 px-4 font-semibold text-center w-16">Action</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerTableBody" class="divide-y divide-paper-ruled">
+            <!-- Populated via Javascript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Notebook Bottom Sheet Summary -->
+      <div class="px-6 py-3.5 bg-paper-100/70 border-t border-paper-border flex flex-wrap items-center justify-between text-xs text-ink-muted">
+        <div class="flex items-center gap-4 font-mono">
+          <span>Inflow: <strong class="text-forest" id="sumInflow">₹92,500.00</strong></span>
+          <span>Outflow: <strong class="text-terracotta" id="sumOutflow">₹32,450.00</strong></span>
+          <span>Net Savings: <strong class="text-ink-navy" id="sumNet">₹60,050.00</strong></span>
+        </div>
+        <div class="flex items-center gap-1 text-[11px]">
+          <span class="material-symbols-outlined text-sm text-forest">lock</span>
+          <span>Encrypted Google Sheets Sync Active</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- BALANCE ADJUST MODAL DIALOG -->
+  <div id="verifyModal" class="fixed inset-0 z-50 bg-ink-navy/40 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-paper-50 rounded-2xl border border-paper-border max-w-sm w-full p-6 shadow-paper-lift space-y-4">
+      <div class="flex items-center justify-between border-b border-paper-ruled pb-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-ink-navy">account_balance</span>
+          <h3 class="font-serif font-bold text-sm text-ink-navy" id="modalBankTitle">Verify Bank Balance</h3>
+        </div>
+        <button onclick="closeModal()" class="text-ink-muted hover:text-ink-navy">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <p class="text-xs text-ink-muted leading-relaxed">
+        Set the verified baseline balance from your official bank SMS or passbook statement. The system recalculates live balances from this baseline forward.
+      </p>
+
+      <div>
+        <label class="block text-[11px] font-mono text-ink-muted uppercase font-semibold mb-1">New Baseline Balance (₹)</label>
+        <input 
+          id="modalBalanceInput" 
+          type="number" 
+          step="any" 
+          class="w-full py-2 px-3 font-mono font-bold text-ink-navy bg-paper-100 border border-paper-border rounded-lg text-sm"
+        />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal()" class="px-3 py-1.5 rounded-lg border border-paper-border text-xs text-ink-slate hover:bg-paper-100">Cancel</button>
+        <button onclick="saveAdjustedBalance()" class="px-4 py-1.5 rounded-lg bg-ink-navy text-white text-xs font-semibold shadow-slip hover:bg-ink-slate">Confirm & Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let activeType = 'Expense';
+    let activeScope = 'personal';
+    let targetBankForModal = 'SBI';
+
+    let transactions = [
+      { id: 1, date: '13 Nov 2026', desc: 'Nilgiris Supermarket Vegetables & Provisions', category: 'Groceries', bank: 'SBI', status: 'PAID', amount: -1420.00, type: 'Expense', scope: 'family' },
+      { id: 2, date: '13 Nov 2026', desc: 'Shell HPCL Fuel auto refill', category: 'Fuel & Travel', bank: 'SBI', status: 'PAID', amount: -650.00, type: 'Expense', scope: 'personal' },
+      { id: 3, date: '12 Nov 2026', desc: 'KSEB Electricity Bill Nov 2026', category: 'Utilities', bank: 'Canara Bank', status: 'PAID', amount: -1840.00, type: 'Expense', scope: 'family' },
+      { id: 4, date: '11 Nov 2026', desc: 'BSNL Fiber Internet Broadband', category: 'Utilities', bank: 'Canara Bank', status: 'PAID', amount: -825.00, type: 'Expense', scope: 'personal' },
+      { id: 5, date: '10 Nov 2026', desc: 'Canara Home Loan EMI Auto Debit', category: 'Loan EMI', bank: 'Canara Bank', status: 'CLEARED', amount: -22400.00, type: 'Expense', scope: 'family' },
+      { id: 6, date: '08 Nov 2026', desc: 'Swiggy Dinner with Family', category: 'Food & Dining', bank: 'SBI', status: 'PAID', amount: -780.00, type: 'Expense', scope: 'family' },
+      { id: 7, date: '01 Nov 2026', desc: 'Monthly Salary Credit - Tech Corp', category: 'Salary', bank: 'SBI', status: 'CLEARED', amount: 85000.00, type: 'Income', scope: 'personal' },
+      { id: 8, date: '01 Nov 2026', desc: 'Freelance Design Consultation', category: 'Salary', bank: 'Canara Bank', status: 'CLEARED', amount: 7500.00, type: 'Income', scope: 'personal' },
+      { id: 9, date: '28 Oct 2026', desc: 'Apollo Pharmacy Medicines', category: 'Medical', bank: 'SBI', status: 'PAID', amount: -490.00, type: 'Expense', scope: 'family' },
+      { id: 10, date: '25 Oct 2026', desc: 'Decathlon Sportswear Shoes', category: 'Shopping', bank: 'SBI', status: 'PAID', amount: -2890.00, type: 'Expense', scope: 'personal' },
+    ];
+
+    let balances = {
+      'SBI': 96400.00,
+      'Canara Bank': 51850.00,
+    };
+
+    function renderLedger() {
+      const tbody = document.getElementById('ledgerTableBody');
+      const search = document.getElementById('searchLedger').value.toLowerCase();
+      const bankFilter = document.getElementById('bankFilter').value;
+
+      tbody.innerHTML = '';
+
+      let filtered = transactions.filter(t => {
+        if (bankFilter !== 'All' && t.bank !== bankFilter) return false;
+        if (search && !t.desc.toLowerCase().includes(search) && !t.category.toLowerCase().includes(search)) return false;
+        if (activeScope === 'personal' && t.scope === 'family') return true; // Show all or toggle
+        return true;
+      });
+
+      let inflow = 0;
+      let outflow = 0;
+
+      filtered.forEach(item => {
+        if (item.amount > 0) inflow += item.amount;
+        else outflow += Math.abs(item.amount);
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-paper-100/80 transition-colors';
+
+        const isPositive = item.amount > 0;
+        const formattedAmt = `${isPositive ? '+' : '-'}₹${Math.abs(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const amtColor = isPositive ? 'text-forest font-bold' : 'text-terracotta font-semibold';
+
+        const bankBadge = item.bank === 'SBI' 
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sbi-light text-sbi border border-sbi-border">SBI</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-canara-light text-canara border border-canara-border">CNB</span>`;
+
+        const statusBadge = item.status === 'CLEARED'
+          ? `<span class="stamp-badge text-[9px] font-bold text-forest bg-forest-light px-1.5 py-0.5 rounded border border-forest-border">CLEARED</span>`
+          : `<span class="stamp-badge text-[9px] font-bold text-ink-muted bg-paper-200 px-1.5 py-0.5 rounded border border-paper-300">PAID</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-6 font-mono text-[11px] text-ink-muted whitespace-nowrap">${item.date}</td>
+          <td class="py-3 px-4">
+            <div class="font-medium text-ink-navy text-[13px]">${item.desc}</div>
+            <div class="text-[11px] text-ink-muted flex items-center gap-1.5 pt-0.5">
+              <span>${item.category}</span>
+              <span>&bull;</span>
+              <span class="capitalize text-[10px] font-mono bg-paper-200 px-1.5 rounded">${item.scope}</span>
+            </div>
+          </td>
+          <td class="py-3 px-4 whitespace-nowrap">${bankBadge}</td>
+          <td class="py-3 px-4 whitespace-nowrap">${statusBadge}</td>
+          <td class="py-3 px-6 text-right font-mono text-sm ${amtColor} whitespace-nowrap">${formattedAmt}</td>
+          <td class="py-3 px-4 text-center">
+            <button onclick="deleteEntry(${item.id})" class="text-ink-muted hover:text-terracotta p-1 rounded hover:bg-paper-200 transition-colors" title="Delete entry">
+              <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('rowCountDisplay').innerText = `${filtered.length} Records Listed`;
+      document.getElementById('sumInflow').innerText = `₹${inflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      document.getElementById('sumOutflow').innerText = `₹${outflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      document.getElementById('sumNet').innerText = `₹${(inflow - outflow).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    }
+
+    function setSlipType(type) {
+      activeType = type;
+      const exp = document.getElementById('typeExpenseBtn');
+      const inc = document.getElementById('typeIncomeBtn');
+      const trn = document.getElementById('typeTransferBtn');
+
+      [exp, inc, trn].forEach(b => {
+        b.className = 'px-2.5 py-1 rounded text-ink-muted hover:text-ink-navy';
+      });
+
+      if (type === 'Expense') {
+        exp.className = 'px-2.5 py-1 rounded bg-terracotta text-white font-semibold shadow-xs';
+      } else if (type === 'Income') {
+        inc.className = 'px-2.5 py-1 rounded bg-forest text-white font-semibold shadow-xs';
+      } else {
+        trn.className = 'px-2.5 py-1 rounded bg-ink-navy text-white font-semibold shadow-xs';
+      }
+    }
+
+    function handleQuickLog(e) {
+      e.preventDefault();
+      const amountVal = parseFloat(document.getElementById('slipAmount').value);
+      if (isNaN(amountVal) || amountVal <= 0) return;
+
+      const bank = document.getElementById('slipBank').value;
+      const category = document.getElementById('slipCategory').value;
+      const note = document.getElementById('slipNote').value || category;
+
+      const signedAmount = activeType === 'Income' ? amountVal : -amountVal;
+
+      const newRecord = {
+        id: Date.now(),
+        date: 'Today - 13 Nov',
+        desc: note,
+        category: category,
+        bank: bank,
+        status: 'PAID',
+        amount: signedAmount,
+        type: activeType,
+        scope: activeScope
+      };
+
+      transactions.unshift(newRecord);
+
+      // Adjust bank balance
+      balances[bank] += signedAmount;
+      updateHeaderBalances();
+
+      // Reset form
+      document.getElementById('slipAmount').value = '';
+      document.getElementById('slipNote').value = '';
+
+      renderLedger();
+    }
+
+    function deleteEntry(id) {
+      const idx = transactions.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        const item = transactions[idx];
+        balances[item.bank] -= item.amount;
+        transactions.splice(idx, 1);
+        updateHeaderBalances();
+        renderLedger();
+      }
+    }
+
+    function updateHeaderBalances() {
+      document.getElementById('sbiCardBalance').innerText = `₹${balances['SBI'].toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      document.getElementById('canaraCardBalance').innerText = `₹${balances['Canara Bank'].toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      
+      const total = balances['SBI'] + balances['Canara Bank'];
+      document.getElementById('totalNetBalance').innerText = `₹${total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    }
+
+    function filterLedger() {
+      renderLedger();
+    }
+
+    function switchLedgerView(scope) {
+      activeScope = scope;
+      const p = document.getElementById('btnTabPersonal');
+      const f = document.getElementById('btnTabFamily');
+      if (scope === 'personal') {
+        p.className = 'px-3 py-1 rounded-md bg-paper-50 text-ink-navy shadow-sm font-semibold transition-all';
+        f.className = 'px-3 py-1 rounded-md text-ink-muted hover:text-ink-navy transition-all';
+      } else {
+        f.className = 'px-3 py-1 rounded-md bg-paper-50 text-ink-navy shadow-sm font-semibold transition-all';
+        p.className = 'px-3 py-1 rounded-md text-ink-muted hover:text-ink-navy transition-all';
+      }
+      renderLedger();
+    }
+
+    function promptVerifyBalance(bank, currentVal) {
+      targetBankForModal = bank;
+      document.getElementById('modalBankTitle').innerText = `Verify ${bank} Balance`;
+      document.getElementById('modalBalanceInput').value = balances[bank];
+      document.getElementById('verifyModal').classList.remove('hidden');
+      document.getElementById('verifyModal').classList.add('flex');
+    }
+
+    function closeModal() {
+      document.getElementById('verifyModal').classList.add('hidden');
+      document.getElementById('verifyModal').classList.remove('flex');
+    }
+
+    function saveAdjustedBalance() {
+      const val = parseFloat(document.getElementById('modalBalanceInput').value);
+      if (!isNaN(val)) {
+        balances[targetBankForModal] = val;
+        updateHeaderBalances();
+        closeModal();
+      }
+    }
+
+    function openStatementModal() {
+      alert("Statement Scanner: You can drag and drop your SBI or Canara e-statement PDF to auto-extract transactions & sync verified baseline.");
+    }
+
+    // Initialize
+    updateHeaderBalances();
+    renderLedger();
+  </script>
+</body>
+</html>

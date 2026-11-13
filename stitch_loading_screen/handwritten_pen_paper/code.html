@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>The Executive Diary - Built-in Thumb Index Ledger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&family=Patrick+Hand&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --leather-dark: #3F2110;
+      --leather-mid: #5A3119;
+      --leather-edge: #744022;
+      --page-stack: #EFE9DF;
+      --paper-white: #FFFFFF;
+      --ruled-line: #E2E8F0;
+      --margin-gray: #CBD5E1;
+      --ink-navy: #0F2038;
+      --ink-blue: #1B365D;
+      --ink-red: #A31D1D;
+      --ink-green: #1B5E34;
+      --tab-blue: #BCD7EF;
+      --tab-peach: #F6CEBF;
+      --tab-green: #C6E6CD;
+      --tab-purple: #E2D1E8;
+    }
+
+    body {
+      background-color: #D6CEC4;
+      background-image: radial-gradient(#BEB5A9 1px, transparent 1px);
+      background-size: 20px 20px;
+      font-family: 'Kalam', cursive;
+      color: var(--ink-navy);
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+
+    .font-sans-diary { font-family: 'Inter', sans-serif; }
+    .font-pen { font-family: 'Caveat', cursive; }
+    .font-body-pen { font-family: 'Kalam', cursive; }
+    .font-margin { font-family: 'Patrick Hand', cursive; }
+    .font-stamp { font-family: 'JetBrains Mono', monospace; }
+
+    /* DIARY BOOK COVER & STACKED PAGES */
+    .diary-leather-wrapper {
+      background: linear-gradient(135deg, var(--leather-dark) 0%, var(--leather-mid) 60%, var(--leather-edge) 100%);
+      border-radius: 12px 16px 16px 12px;
+      box-shadow: 
+        0 10px 30px rgba(35, 20, 10, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        inset -1px 0 2px rgba(255,255,255,0.15);
+      position: relative;
+      padding: 6px 10px 6px 4px;
+    }
+
+    /* RIGHT FORE-EDGE STACKED PAPER LOOK */
+    .paper-stack-edge {
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      right: 4px;
+      width: 7px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #F8F5EE,
+        #F8F5EE 2px,
+        #D5CEC2 2px,
+        #D5CEC2 3px
+      );
+      border-radius: 0 4px 4px 0;
+      box-shadow: inset 1px 0 3px rgba(0,0,0,0.25);
+    }
+
+    /* LEATHER CLASP TAB ON FAR RIGHT */
+    .leather-clasp {
+      position: absolute;
+      top: 50%;
+      right: -16px;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 64px;
+      background: linear-gradient(to right, #4D2812, #6C391B);
+      border-radius: 0 8px 8px 0;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-left: none;
+      z-index: 10;
+    }
+
+    /* MAIN WHITE DIARY PAGE */
+    .diary-page {
+      background-color: var(--paper-white);
+      border-radius: 8px 2px 2px 8px;
+      box-shadow: 
+        -2px 0 6px rgba(0,0,0,0.06),
+        1px 0 3px rgba(0,0,0,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* HORIZONTAL LINED JOURNAL LINES */
+    .diary-ruled-lines {
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 39px,
+        var(--ruled-line) 39px,
+        var(--ruled-line) 40px
+      );
+    }
+
+    /* THUMB INDEX TABS INTEGRATED ON THE RIGHT EDGE */
+    .thumb-tabs-column {
+      width: 44px;
+      border-left: 1px solid #E2E8F0;
+      background-color: #FAFAFA;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 20;
+    }
+
+    .thumb-tab {
+      flex: 1;
+      max-height: 82px;
+      min-height: 68px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      border-radius: 10px 0 0 10px;
+      margin-left: 4px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-right: none;
+      box-shadow: -2px 1px 4px rgba(0,0,0,0.06);
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+    }
+
+    .thumb-tab:hover {
+      margin-left: 0;
+      box-shadow: -4px 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .thumb-tab.active-tab {
+      margin-left: -2px;
+      font-weight: 900;
+      box-shadow: -5px 2px 10px rgba(0,0,0,0.18);
+      border-left: 2.5px solid var(--ink-navy);
+    }
+
+    .tab-blue { background-color: var(--tab-blue); color: #15365A; }
+    .tab-peach { background-color: var(--tab-peach); color: #5C2518; }
+    .tab-green { background-color: var(--tab-green); color: #164624; }
+    .tab-purple { background-color: var(--tab-purple); color: #482054; }
+
+    /* INK STAMP */
+    .ink-stamp {
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 8px;
+      font-weight: 700;
+      border: 1px solid currentColor;
+      padding: 1px 3px;
+      border-radius: 2px;
+      display: inline-block;
+      line-height: 1.1;
+    }
+
+    /* SCRATCHED OUT */
+    .scratched {
+      text-decoration: line-through;
+      text-decoration-color: var(--ink-red);
+      text-decoration-thickness: 2px;
+      opacity: 0.45;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-2 sm:p-6 flex justify-center items-start">
+
+  <div class="w-full max-w-xl my-2 relative">
+
+    <!-- DESK TOP BRANDING -->
+    <div class="flex items-center justify-between px-2 pb-2">
+      <div class="flex items-center gap-1.5 font-sans-diary text-xs font-bold text-amber-950 uppercase tracking-widest">
+        <span>📖</span>
+        <span>Executive Planner &bull; Built-in Thumb Index</span>
+      </div>
+      <div class="text-[11px] font-sans-diary text-stone-600 font-medium">
+        Week 46 &bull; Manikutti Hub
+      </div>
+    </div>
+
+    <!-- MAIN LEATHER BINDER CONTAINER -->
+    <div class="diary-leather-wrapper">
+      
+      <!-- FORE-EDGE STACKED PAPER SLIVER ON RIGHT -->
+      <div class="paper-stack-edge"></div>
+
+      <!-- LEATHER CLASP FLAP ON RIGHT -->
+      <div class="leather-clasp hidden sm:block"></div>
+
+      <!-- THE DIARY WHITE PAGE -->
+      <div class="diary-page flex">
+        
+        <!-- LEFT: MAIN JOURNAL & WRITING AREA -->
+        <div class="flex-1 flex flex-col min-w-0 pr-1">
+          
+          <!-- DIARY PRINTED HEADER (EXACTLY LIKE THE REFERENCE IMAGE) -->
+          <div class="p-3 sm:p-4 pb-2 border-b-2 border-slate-700 bg-white">
+            <div class="flex items-start justify-between">
+              
+              <!-- Left: Month / Year Blue Accent Block -->
+              <div class="bg-[#E4EEF8] border-b-2 border-[#BCD7EF] px-3 py-1.5 rounded-t-sm flex-1 mr-3">
+                <div class="flex items-baseline justify-between font-sans-diary">
+                  <div>
+                    <span class="text-xs font-extrabold text-[#1B365D] tracking-wider uppercase">2026</span>
+                    <h2 class="text-base sm:text-lg font-black text-[#1B365D] tracking-tight uppercase leading-none">
+                      NOVEMBER
+                    </h2>
+                  </div>
+                  <div class="text-right text-[10px] sm:text-xs text-slate-600 font-semibold tracking-wide">
+                    <span>WK 46 &bull; DAY 317-048</span>
+                    <div class="text-[#1B365D] font-bold uppercase">FRIDAY</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Big Printed Calendar Day Number -->
+              <div class="font-sans-diary text-4xl sm:text-5xl font-black text-slate-800 tracking-tighter leading-none shrink-0 pt-0.5">
+                13
+              </div>
+
+            </div>
+
+            <!-- DUAL BANK PASSBOOK TICKER -->
+            <div class="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs font-sans-diary">
+              <div class="flex items-center gap-3">
+                <div>
+                  <span class="text-[10px] text-gray-500 font-semibold">SBI (**4821):</span>
+                  <span class="font-bold text-blue-900 font-stamp ml-1" id="hdrSbi">₹96,400</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-gray-500 font-semibold">Canara (**9130):</span>
+                  <span class="font-bold text-amber-800 font-stamp ml-1" id="hdrCanara">₹51,850</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-gray-500 uppercase">Total:</span>
+                <span class="font-bold text-slate-900 font-stamp ml-1" id="hdrTotal">₹1,48,250.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTIVE FILTER BANNER (TRIGGERED BY THUMB INDEX TABS) -->
+          <div id="filterBanner" class="hidden bg-[#FFFDF0] border-b border-amber-200 p-2 text-xs font-sans-diary">
+            <div class="flex items-center justify-between pb-1 border-b border-amber-200 mb-1.5">
+              <span id="filterBannerTitle" class="font-bold text-slate-900 flex items-center gap-1 text-[11px] uppercase tracking-wider">
+                <span>🔖</span> <span id="bannerTitleText">Filter</span>
+              </span>
+              <button onclick="closeFilterBanner()" class="text-gray-400 hover:text-black font-bold text-sm px-1">✕</button>
+            </div>
+
+            <!-- Panel: Date -->
+            <div id="panelDate" class="filter-panel hidden flex flex-wrap gap-1 text-[11px]">
+              <button onclick="applyDate('ALL')" class="btn-d py-1 px-2.5 rounded bg-amber-100 text-amber-950 font-bold border border-amber-300">All Dates</button>
+              <button onclick="applyDate('THIS_MONTH')" class="btn-d py-1 px-2.5 rounded bg-white hover:bg-amber-50 border border-gray-300">November 2026</button>
+              <button onclick="applyDate('LAST_MONTH')" class="btn-d py-1 px-2.5 rounded bg-white hover:bg-amber-50 border border-gray-300">October 2026</button>
+              <button onclick="applyDate('RECENT')" class="btn-d py-1 px-2.5 rounded bg-white hover:bg-amber-50 border border-gray-300">Recent 7 Days</button>
+            </div>
+
+            <!-- Panel: Payee -->
+            <div id="panelPayee" class="filter-panel hidden">
+              <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto" id="payeeChipsList"></div>
+            </div>
+
+            <!-- Panel: Bank -->
+            <div id="panelBank" class="filter-panel hidden flex gap-1.5 text-[11px]">
+              <button onclick="applyBank('ALL')" class="btn-b py-1 px-2.5 rounded bg-blue-100 text-blue-950 font-bold border border-blue-300">All Accounts</button>
+              <button onclick="applyBank('SBI')" class="btn-b py-1 px-2.5 rounded bg-white hover:bg-blue-50 border border-gray-300">SBI (**4821)</button>
+              <button onclick="applyBank('Canara Bank')" class="btn-b py-1 px-2.5 rounded bg-white hover:bg-amber-50 border border-gray-300">Canara (**9130)</button>
+            </div>
+
+            <!-- Panel: Sort -->
+            <div id="panelSort" class="filter-panel hidden grid grid-cols-2 gap-1 text-[11px]">
+              <button onclick="applySort('DATE_DESC')" class="btn-s py-1 px-2 rounded bg-purple-100 text-purple-950 font-bold border border-purple-300 text-left">📅 Date: Newest ↓</button>
+              <button onclick="applySort('DATE_ASC')" class="btn-s py-1 px-2 rounded bg-white hover:bg-purple-50 border border-gray-300 text-left">📅 Date: Oldest ↑</button>
+              <button onclick="applySort('AMT_DESC')" class="btn-s py-1 px-2 rounded bg-white hover:bg-purple-50 border border-gray-300 text-left">💰 Amount: High ↓</button>
+              <button onclick="applySort('AMT_ASC')" class="btn-s py-1 px-2 rounded bg-white hover:bg-purple-50 border border-gray-300 text-left">💰 Amount: Low ↑</button>
+            </div>
+
+            <div class="mt-1 pt-1 border-t border-amber-200/80 flex items-center justify-between text-[10px] text-gray-500">
+              <span id="activeFilterSummary">Showing all records &bull; Newest first</span>
+              <button onclick="resetAllFilters()" class="text-red-700 underline font-bold">Reset Filters</button>
+            </div>
+          </div>
+
+          <!-- WRITE ON DIARY PAGE (FILL-IN LINE) -->
+          <div class="p-2 sm:p-3 bg-amber-50/40 border-b border-dashed border-amber-200 text-xs font-sans-diary">
+            <form onsubmit="writeExpense(event)" class="space-y-1.5">
+              <div class="grid grid-cols-2 sm:grid-cols-12 gap-1.5 items-end">
+                
+                <!-- Amount -->
+                <div class="col-span-1 sm:col-span-4">
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase">Amount (₹)</label>
+                  <div class="flex items-center">
+                    <span class="font-pen text-xl font-bold text-slate-800 mr-0.5">₹</span>
+                    <input 
+                      id="inAmt" 
+                      type="number" 
+                      step="any" 
+                      required 
+                      inputmode="decimal" 
+                      placeholder="450" 
+                      class="w-full bg-transparent border-0 border-b-2 border-slate-700 font-pen text-xl font-bold text-slate-900 px-1 py-0 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <!-- Bank -->
+                <div class="col-span-1 sm:col-span-4">
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase">Account</label>
+                  <select id="inBank" class="w-full bg-transparent border-0 border-b-2 border-slate-700 text-xs font-bold text-slate-800 py-0.5 focus:outline-none">
+                    <option value="SBI">SBI (**4821)</option>
+                    <option value="Canara Bank">Canara (**9130)</option>
+                  </select>
+                </div>
+
+                <!-- Type -->
+                <div class="col-span-2 sm:col-span-4 flex items-center gap-3 pt-1">
+                  <label class="inline-flex items-center gap-1 cursor-pointer text-xs">
+                    <input type="radio" name="entryType" value="Expense" checked class="accent-red-700" />
+                    <span class="text-red-700 font-bold">Expense (-)</span>
+                  </label>
+                  <label class="inline-flex items-center gap-1 cursor-pointer text-xs">
+                    <input type="radio" name="entryType" value="Income" class="accent-green-700" />
+                    <span class="text-green-800 font-bold">Income (+)</span>
+                  </label>
+                </div>
+
+              </div>
+
+              <!-- Note / Recipient -->
+              <div class="flex gap-1.5 items-end pt-1">
+                <div class="flex-1">
+                  <input 
+                    id="inNote" 
+                    type="text" 
+                    placeholder="Recipient / Note (e.g. Nilgiris Milk, Shell Petrol)" 
+                    class="w-full bg-transparent border-0 border-b-2 border-slate-700 font-body-pen text-xs px-1 py-0.5 focus:outline-none"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  class="py-1 px-3 rounded bg-slate-900 hover:bg-slate-800 text-white font-sans-diary font-bold text-xs uppercase tracking-wider shrink-0 active:scale-95 shadow-sm"
+                >
+                  🖋️ Write
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- RULED DAILY JOURNAL ENTRIES -->
+          <div class="diary-ruled-lines p-2 sm:p-3 pl-8 sm:pl-10 relative min-h-[300px]">
+            
+            <!-- LEFT MARGIN TIME / ROW NUMBERS -->
+            <div class="absolute left-2 top-2 bottom-2 w-5 text-[10px] font-sans-diary text-slate-300 font-bold flex flex-col justify-between select-none">
+              <span>08</span>
+              <span>10</span>
+              <span>12</span>
+              <span>02</span>
+              <span>04</span>
+              <span>06</span>
+              <span>08</span>
+            </div>
+
+            <!-- ENTRIES CONTAINER -->
+            <div id="journalRows" class="space-y-0 text-xs">
+              <!-- Dynamically populated -->
+            </div>
+
+          </div>
+
+          <!-- DIARY BOTTOM CALENDAR STRIP (EXACTLY LIKE THE REFERENCE PHOTO) -->
+          <div class="border-t-2 border-slate-700 bg-white p-2 sm:p-2.5 font-sans-diary text-[10px]">
+            <div class="flex items-center justify-between text-gray-500 font-bold uppercase pb-1">
+              <span>NOVEMBER 2026 CALENDAR</span>
+              <span class="text-slate-800 font-bold font-stamp" id="netBottomBalance">NET: +₹60,050.00</span>
+            </div>
+
+            <div class="grid grid-cols-14 gap-0.5 text-center text-[9px] border border-slate-200 rounded p-1 bg-slate-50 font-mono">
+              <div class="text-gray-400 font-bold">Tu<br><span class="text-slate-700">10</span></div>
+              <div class="text-gray-400 font-bold">We<br><span class="text-slate-700">11</span></div>
+              <div class="text-gray-400 font-bold">Th<br><span class="text-slate-700">12</span></div>
+              <div class="bg-blue-600 text-white font-black rounded-xs shadow-xs">Fr<br><span>13</span></div>
+              <div class="text-blue-900 font-bold">Sa<br><span class="text-slate-700">14</span></div>
+              <div class="text-blue-900 font-bold">Su<br><span class="text-slate-700">15</span></div>
+              <div class="text-gray-400 font-bold">Mo<br><span class="text-slate-700">16</span></div>
+              <div class="text-gray-400 font-bold">Tu<br><span class="text-slate-700">17</span></div>
+              <div class="text-gray-400 font-bold">We<br><span class="text-slate-700">18</span></div>
+              <div class="text-gray-400 font-bold">Th<br><span class="text-slate-700">19</span></div>
+              <div class="text-gray-400 font-bold">Fr<br><span class="text-slate-700">20</span></div>
+              <div class="text-blue-900 font-bold">Sa<br><span class="text-slate-700">21</span></div>
+              <div class="text-blue-900 font-bold">Su<br><span class="text-slate-700">22</span></div>
+              <div class="text-gray-400 font-bold">Mo<br><span class="text-slate-700">23</span></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT: BUILT-IN THUMB INDEX TABS (INTEGRATED DIRECTLY IN THE SCREEN) -->
+        <div class="thumb-tabs-column shrink-0">
+          
+          <button id="tabBtnDate" onclick="selectThumbTab('date')" class="thumb-tab tab-blue active-tab" title="Filter by Date">
+            <span>DATE</span>
+          </button>
+
+          <button id="tabBtnPayee" onclick="selectThumbTab('payee')" class="thumb-tab tab-peach" title="Filter by Recipient">
+            <span>PAYEE</span>
+          </button>
+
+          <button id="tabBtnBank" onclick="selectThumbTab('bank')" class="thumb-tab tab-green" title="Filter by Bank">
+            <span>BANK</span>
+          </button>
+
+          <button id="tabBtnSort" onclick="selectThumbTab('sort')" class="thumb-tab tab-purple" title="Sort by Date or Amount">
+            <span>SORT</span>
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let sbi = 96400;
+    let canara = 51850;
+
+    let activeTab = 'date';
+    let filterDate = 'ALL';
+    let filterPayee = 'ALL';
+    let filterBank = 'ALL';
+    let filterSort = 'DATE_DESC';
+
+    let rows = [
+      { id: 1, date: '13 Nov', dateObj: new Date('2026-11-13'), recipient: 'Nilgiris Provisions', note: 'Nilgiris Provisions & Milk', bank: 'SBI', amt: -1420, scratched: false },
+      { id: 2, date: '13 Nov', dateObj: new Date('2026-11-13'), recipient: 'Shell HPCL Fuel', note: 'HPCL Fuel auto refill', bank: 'SBI', amt: -650, scratched: false },
+      { id: 3, date: '12 Nov', dateObj: new Date('2026-11-12'), recipient: 'KSEB Electricity', note: 'KSEB Electricity Bill Nov', bank: 'Canara Bank', amt: -1840, scratched: false },
+      { id: 4, date: '10 Nov', dateObj: new Date('2026-11-10'), recipient: 'Tech Corp', note: 'Monthly Salary Credit', bank: 'SBI', amt: 85000, scratched: false },
+      { id: 5, date: '08 Nov', dateObj: new Date('2026-11-08'), recipient: 'Swiggy Foods', note: 'Swiggy Dinner with Family', cat: 'Dining', bank: 'SBI', amt: -780, scratched: false },
+      { id: 6, date: '28 Oct', dateObj: new Date('2026-10-28'), recipient: 'Canara Loan EMI', note: 'Canara Home Loan EMI', bank: 'Canara Bank', amt: -22400, scratched: false },
+    ];
+
+    function selectThumbTab(tab) {
+      const banner = document.getElementById('filterBanner');
+
+      // Toggle banner if same tab
+      if (activeTab === tab && !banner.classList.contains('hidden')) {
+        closeFilterBanner();
+        return;
+      }
+
+      activeTab = tab;
+      banner.classList.remove('hidden');
+
+      // Update thumb tab button styling
+      document.querySelectorAll('.thumb-tab').forEach(t => t.classList.remove('active-tab'));
+      const activeBtn = document.getElementById(`tabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+      if (activeBtn) activeBtn.classList.add('active-tab');
+
+      // Hide panels
+      document.querySelectorAll('.filter-panel').forEach(p => p.classList.add('hidden'));
+
+      const titleText = document.getElementById('bannerTitleText');
+
+      if (tab === 'date') {
+        titleText.innerText = 'DATE THUMB INDEX';
+        document.getElementById('panelDate').classList.remove('hidden');
+      } else if (tab === 'payee') {
+        titleText.innerText = 'PAYEE / RECIPIENT THUMB INDEX';
+        populatePayeeChips();
+        document.getElementById('panelPayee').classList.remove('hidden');
+      } else if (tab === 'bank') {
+        titleText.innerText = 'BANK ACCOUNT THUMB INDEX';
+        document.getElementById('panelBank').classList.remove('hidden');
+      } else if (tab === 'sort') {
+        titleText.innerText = 'SORTING THUMB INDEX';
+        document.getElementById('panelSort').classList.remove('hidden');
+      }
+    }
+
+    function closeFilterBanner() {
+      document.getElementById('filterBanner').classList.add('hidden');
+    }
+
+    function populatePayeeChips() {
+      const container = document.getElementById('payeeChipsList');
+      container.innerHTML = '';
+
+      const payees = ['ALL', ...new Set(rows.map(r => r.recipient))];
+
+      payees.forEach(p => {
+        const btn = document.createElement('button');
+        const isActive = filterPayee === p;
+        btn.className = `py-1 px-2.5 rounded font-sans-diary text-[11px] font-bold border transition-all ${
+          isActive 
+            ? 'bg-amber-200 text-amber-950 border-amber-400' 
+            : 'bg-white hover:bg-amber-50 text-gray-700 border-gray-300'
+        }`;
+        btn.innerText = p === 'ALL' ? 'All Payees' : p;
+        btn.onclick = () => {
+          filterPayee = p;
+          populatePayeeChips();
+          updateSummary();
+          renderJournal();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function applyDate(d) {
+      filterDate = d;
+      document.querySelectorAll('.btn-d').forEach(btn => btn.className = 'btn-d py-1 px-2.5 rounded bg-white hover:bg-amber-50 border border-gray-300');
+      event.target.className = 'btn-d py-1 px-2.5 rounded bg-amber-100 text-amber-950 font-bold border border-amber-300';
+      updateSummary();
+      renderJournal();
+    }
+
+    function applyBank(b) {
+      filterBank = b;
+      document.querySelectorAll('.btn-b').forEach(btn => btn.className = 'btn-b py-1 px-2.5 rounded bg-white hover:bg-blue-50 border border-gray-300');
+      event.target.className = 'btn-b py-1 px-2.5 rounded bg-blue-100 text-blue-950 font-bold border border-blue-300';
+      updateSummary();
+      renderJournal();
+    }
+
+    function applySort(s) {
+      filterSort = s;
+      document.querySelectorAll('.btn-s').forEach(btn => btn.className = 'btn-s py-1 px-2 rounded bg-white hover:bg-purple-50 border border-gray-300 text-left');
+      event.currentTarget.className = 'btn-s py-1 px-2 rounded bg-purple-100 text-purple-950 font-bold border border-purple-300 text-left';
+      updateSummary();
+      renderJournal();
+    }
+
+    function resetAllFilters() {
+      filterDate = 'ALL';
+      filterPayee = 'ALL';
+      filterBank = 'ALL';
+      filterSort = 'DATE_DESC';
+      updateSummary();
+      renderJournal();
+      closeFilterBanner();
+    }
+
+    function updateSummary() {
+      let parts = [];
+      if (filterDate !== 'ALL') parts.push(`Date: ${filterDate}`);
+      if (filterPayee !== 'ALL') parts.push(`Payee: ${filterPayee}`);
+      if (filterBank !== 'ALL') parts.push(`Bank: ${filterBank}`);
+      parts.push(`Sort: ${filterSort}`);
+      document.getElementById('activeFilterSummary').innerText = parts.join(' • ');
+    }
+
+    function renderJournal() {
+      const container = document.getElementById('journalRows');
+      container.innerHTML = '';
+
+      let filtered = rows.filter(r => {
+        if (filterBank !== 'ALL' && r.bank !== filterBank) return false;
+        if (filterPayee !== 'ALL' && r.recipient !== filterPayee) return false;
+        if (filterDate === 'THIS_MONTH' && r.dateObj.getMonth() !== 10) return false;
+        if (filterDate === 'LAST_MONTH' && r.dateObj.getMonth() !== 9) return false;
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        if (filterSort === 'DATE_DESC') return b.dateObj - a.dateObj;
+        if (filterSort === 'DATE_ASC') return a.dateObj - b.dateObj;
+        if (filterSort === 'AMT_DESC') return Math.abs(b.amt) - Math.abs(a.amt);
+        if (filterSort === 'AMT_ASC') return Math.abs(a.amt) - Math.abs(b.amt);
+        return 0;
+      });
+
+      let net = 0;
+
+      filtered.forEach(r => {
+        if (!r.scratched) net += r.amt;
+
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between py-1.5 px-1 hover:bg-slate-50 transition-all ${r.scratched ? 'scratched' : ''}`;
+        row.style.minHeight = '40px';
+
+        const isPos = r.amt > 0;
+        const color = isPos ? 'text-green-800 font-bold' : 'text-red-700 font-semibold';
+        const sign = isPos ? '+' : '-';
+        const formatted = `${sign}₹${Math.abs(r.amt).toLocaleString('en-IN')}`;
+
+        const bankBadge = r.bank === 'SBI'
+          ? `<span class="ink-stamp text-blue-900 border-blue-900 bg-blue-50/50">SBI</span>`
+          : `<span class="ink-stamp text-amber-800 border-amber-800 bg-amber-50/50">CNB</span>`;
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0 pr-1">
+            <span class="font-sans-diary text-[10px] font-bold text-slate-400 shrink-0">${r.date}</span>
+            <div class="min-w-0">
+              <div class="font-body-pen text-sm text-slate-900 truncate leading-tight">${r.note}</div>
+              <div class="font-sans-diary text-[9px] text-slate-500 leading-none">${r.recipient}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="font-pen text-lg ${color}">${formatted}</span>
+            ${bankBadge}
+            <button onclick="scratchLine(${r.id})" title="Cross out entry" class="text-slate-400 hover:text-red-700 text-xs px-0.5">
+              ${r.scratched ? '↩' : '✏️'}
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="py-6 text-center font-sans-diary text-gray-400 text-xs">No entries match this thumb index. <button onclick="resetAllFilters()" class="text-blue-900 underline font-bold">Reset</button></div>`;
+      }
+
+      // Update header & footer
+      document.getElementById('hdrSbi').innerText = `₹${sbi.toLocaleString('en-IN')}`;
+      document.getElementById('hdrCanara').innerText = `₹${canara.toLocaleString('en-IN')}`;
+      document.getElementById('hdrTotal').innerText = `₹${(sbi + canara).toLocaleString('en-IN')}.00`;
+      document.getElementById('netBottomBalance').innerText = `NET: ${net >= 0 ? '+' : '-'}₹${Math.abs(net).toLocaleString('en-IN')}.00`;
+    }
+
+    function writeExpense(e) {
+      e.preventDefault();
+      const amtInput = document.getElementById('inAmt');
+      const val = parseFloat(amtInput.value);
+      if (isNaN(val) || val <= 0) return;
+
+      const bank = document.getElementById('inBank').value;
+      const noteInput = document.getElementById('inNote');
+      const note = noteInput.value.trim() || 'Daily Expense';
+      const recipient = note.split(' ').slice(0, 2).join(' ');
+
+      const type = document.querySelector('input[name="entryType"]:checked').value;
+      const signed = type === 'Income' ? val : -val;
+
+      if (bank === 'SBI') sbi += signed;
+      else canara += signed;
+
+      rows.unshift({
+        id: Date.now(),
+        date: '13 Nov',
+        dateObj: new Date('2026-11-13'),
+        recipient: recipient,
+        note: note,
+        bank: bank,
+        amt: signed,
+        scratched: false
+      });
+
+      amtInput.value = '';
+      noteInput.value = '';
+      renderJournal();
+    }
+
+    function scratchLine(id) {
+      const item = rows.find(r => r.id === id);
+      if (item) {
+        item.scratched = !item.scratched;
+        const delta = item.scratched ? -item.amt : item.amt;
+        if (item.bank === 'SBI') sbi += delta;
+        else canara += delta;
+        renderJournal();
+      }
+    }
+
+    renderJournal();
+  </script>
+</body>
+</html>
