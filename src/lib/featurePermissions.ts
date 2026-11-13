@@ -181,11 +181,21 @@ export function createPermissionsMap(defaultVal: boolean, overrides: Partial<Per
   return map;
 }
 
-export function normalizePermissions(raw: Partial<Record<string, unknown>> | null | undefined, fallbackVal = true): PermissionsMap {
+export function normalizePermissions(
+  raw: Partial<Record<string, unknown>> | null | undefined,
+  fallbackVal = true,
+  defaultRolePermissions?: PermissionsMap
+): PermissionsMap {
   const map = {} as PermissionsMap;
   for (const key of FEATURE_KEYS) {
     const val = raw?.[key];
-    map[key] = typeof val === 'boolean' ? val : fallbackVal;
+    if (typeof val === 'boolean') {
+      map[key] = val;
+    } else if (defaultRolePermissions && typeof defaultRolePermissions[key] === 'boolean') {
+      map[key] = defaultRolePermissions[key];
+    } else {
+      map[key] = fallbackVal;
+    }
   }
   return map;
 }
@@ -346,7 +356,7 @@ export async function getFamilyRolesConfig(
             description: override?.description || defRole.description,
             isSystem: true,
             permissions: override?.permissions
-              ? normalizePermissions(override.permissions, true)
+              ? normalizePermissions(override.permissions, true, defRole.permissions)
               : defRole.permissions,
           };
         }
@@ -394,7 +404,11 @@ export async function getFamilyRolesConfig(
             roleName,
             description: r[3]?.toString() || roles[roleName]?.description || 'Custom family role',
             isSystem: Boolean(roles[roleName]?.isSystem),
-            permissions: normalizePermissions(parsedPerms, roleName === 'Admin' || roleName === 'Partner'),
+            permissions: normalizePermissions(
+              parsedPerms,
+              roleName === 'Admin' || roleName === 'Partner',
+              defaults.roles[roleName]?.permissions
+            ),
           };
         } catch {
           // ignore malformed row
