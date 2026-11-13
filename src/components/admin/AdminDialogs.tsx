@@ -610,7 +610,7 @@ export const AdminDialogs: React.FC<AdminDialogsProps> = ({
               >
                 {(availableRoles && availableRoles.length > 0
                   ? availableRoles
-                  : ['Member', 'Partner', 'Basic', 'Admin']
+                  : ['Member', 'Partner', 'Basic', 'Demo', 'Admin']
                 ).map((roleName) => (
                   <MenuItem key={roleName} value={roleName}>
                     {roleName}

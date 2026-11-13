@@ -218,6 +218,16 @@ export function buildDefaultRolesConfig(): FamilyRolesConfig {
           family_ledger: true,
         }),
       },
+      Demo: {
+        roleName: 'Demo',
+        description: 'Demo view: SMS expense tracking, marking assigned loans/EMIs paid, and tracking repayment schedules.',
+        isSystem: true,
+        permissions: createPermissionsMap(false, {
+          home_loan: true,
+          loans_emi_ledger: true,
+          family_ledger: true,
+        }),
+      },
     },
   };
 }
